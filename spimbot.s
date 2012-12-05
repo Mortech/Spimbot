@@ -114,7 +114,8 @@
 		lw  	$a1, scancontrol($0)
 		li      $a0 163840
 		beq 	$a0, $a1, interrupt_dispatch
-	
+		add 	$a1, $a1, 16384
+		sw 	$a1, scancontrol($0)
 		li $a1, 150
 		sw $a1, 0xffff0050($0)
 		li $a1, 150
