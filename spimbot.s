@@ -7,7 +7,8 @@ tokenHunt:	.word 0	#counter for collecting
 
 scanlocX: .word 1, 150, 50, 50, 50, 150, 250, 250, 250 # the first one is a flag
 scanlocY: .word 0, 250, 250, 150, 50, 50, 50, 150, 250	
-
+wordyo:.space 12
+	
 .text
 
 # SPIMbot MMIO
@@ -22,10 +23,12 @@ print_float	= 0xffff0084	# Prints a float to the screen
 	
 	# NOTE: This is just my code for Lab9. A lot needs changing.
 
+
 	# The arena is 300x300
 	# Therefore, for areas of 100x100, circles of radius 100=touching, 142=overlapping
 	# tokens have a radius of 2 (but the angle algorithm isn't exact, so we need the buffer)
 	# Don't need to stop to pick up a token, but we will to change heading
+
 
 	#Strategy so far: Scan the map in a specific order, moving from one section to the next until we have covered the entire map.
 
@@ -37,6 +40,7 @@ main:                                  # ENABLE INTERRUPTS
      mtc0   $t4, $12                   # set interrupt mask (Status register)
 	     
 	#Start a scan here
+
 	li $t4, 150
 	sw $t4, 0xffff0050($0)
 	li $t4, 150
@@ -45,6 +49,7 @@ main:                                  # ENABLE INTERRUPTS
 	sw $t4, 0xffff0058($0)
 	la $t4, Scan_data
 	sw $t4, 0xffff005c($0)
+
 
 	#below should be code to move the car to the first section (currently there is nothing)
 	                                       # REQUEST TIMER INTERRUPT
@@ -154,9 +159,10 @@ sw      $k0, 0xffff0010($zero)
       sw      $k0, 0xffff0014($zero)   # set angle to $k0
       sw      $zero, 0xffff0018($zero) # relative angle
 
+
       lw      $k0, 0xffff001c($0)      # current time
       add     $k0, $k0, 100000  
-      sw      $k0, 0xffff001c($0)      # request timer in 10000
+      sw      $k0, 0xffff001c($0)      # request timer in 100000
 
       j       interrupt_dispatch       # see if other interrupts are waiting
 
@@ -360,37 +366,79 @@ done:
 	# END sort_list
 
 
-	compact:
-	# $a0 = base_address(bool), $a1 = length, $a2 = base_address(word[])
-	
-	  li   $t0, 0           # $t0 = boolIndex, initialized to 0 
-	  li   $t1, 0x80000000  # $t1 = mask, initialized to 1 << 31 
-	
-	compact_loop:
-	  bge  $t0, $a1, compact_done
-	
-	  lw   $t2, 0($a0)      # $t2 = bool[boolIndex]
-	  lw   $t3, 0($a2)      # $t3 = word[wordIndex]
-	  beq  $t2, $zero, compact_else_case
-	  or   $t3, $t3, $t1    # t3 |= mask
-	  j    compact_endif
-	
-	compact_else_case:
-	  not  $t4, $t1         # can re-use $t2 instead of using $t4
-	  and  $t3, $t3, $t4    # t3 &= ~mask
-	
-	compact_endif:
-	  sw   $t3, 0($a2)      # word[wordIndex] = t3
-	  srl  $t1, $t1, 1      # mask = mask >> 1
-	
-	  bne  $t1, $zero, compact_loop_maintainance
-	  addi $a2, $a2, 4      # advance word array pointer
-	  li   $t1, 0x80000000  # reset mask
-	
-	compact_loop_maintainance:
-	  addi $t0, $t0, 1      # increment boolIndex
-	  addi $a0, $a0, 4      # advance bool array pointer
-	  j    compact_loop
-	
-	compact_done:
-	  jr   $ra              # return
+
+compact:
+# $a0 = base_address(bool), $a1 = length, $a2 = base_address(word[])
+
+  li   $t0, 0           # $t0 = boolIndex, initialized to 0 
+  li   $t1, 0x80000000  # $t1 = mask, initialized to 1 << 31 
+
+compact_loop:
+  bge  $t0, $a1, compact_done
+
+  lw   $t2, 0($a0)      # $t2 = bool[boolIndex]
+  lw   $t3, 0($a2)      # $t3 = word[wordIndex]
+  beq  $t2, $zero, compact_else_case
+  or   $t3, $t3, $t1    # t3 |= mask
+  j    compact_endif
+
+compact_else_case:
+  not  $t4, $t1         # can re-use $t2 instead of using $t4
+  and  $t3, $t3, $t4    # t3 &= ~mask
+
+compact_endif:
+  sw   $t3, 0($a2)      # word[wordIndex] = t3
+  srl  $t1, $t1, 1      # mask = mask >> 1
+
+  bne  $t1, $zero, compact_loop_maintainance
+  addi $a2, $a2, 4      # advance word array pointer
+  li   $t1, 0x80000000  # reset mask
+
+compact_loop_maintainance:
+  addi $t0, $t0, 1      # increment boolIndex
+  addi $a0, $a0, 4      # advance bool array pointer
+  j    compact_loop
+
+compact_done:
+  jr   $ra              # return
+
+
+
+
+drive:
+	sw $t0, 0xffff0020 #x-loc
+	sw $t1, 0xffff0024 #y-loc
+	sub $a0, $a0, $t0 #x-delta
+	sub $a1, $a1, $t1 #y-delta
+	la $t0, wordyo # Save variables I still want (also $ra)
+	sw $a0, 0($t0)
+	sw $a1, 4($t0)
+	sw $ra, 8($t0)
+	jal sb_arctan #find arctan (the angle I want)
+	la $t0, wordyo
+	lw $a0, 0($t0)
+	lw $a1, 4($t0)
+	lw $ra, 8($t0)
+	sw $v0, 0xffff0014($0) # change angle
+	li $t0, 1
+	sw $t0, 0xffff0018
+	abs $a0, $a0 # find distance
+	abs $a1, $a1
+	add $t0, $a0, 0
+	bge $a0, $a1, drive_afterif
+	add $t0, $a1, 0
+drive_afterif:
+	mul $a0, $a0, $a0
+	mul $a1, $a1, $a1
+	add $a0, $a1, $a0
+drive_loop:
+	bge $t0, $a1, drive_end
+	addi $t0, $t0, 3
+drive_end:
+	mul $t0, $t0, 500
+	li $t1, 10
+	sw $t1, 0xffff0010($0) # set velocity to 10
+	lw $t1, 0xffff001c($0)
+	add $t0, $t0, $t1
+	sw $t0, 0xffff001c($0) #set timer to appropriate value
+	jr $ra
