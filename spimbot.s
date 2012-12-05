@@ -27,14 +27,11 @@ main:                                  # ENABLE INTERRUPTS
 #	la $t4, scandata
 #	sw $t4, 0xffff005c($0)
 
-	#below should be code to move the car to the first section (currently there is nothing)
-                                       # REQUEST TIMER INTERRUPT
-     lw     $v0, 0xffff001c($0)        # read current time
-     add    $v0, $v0, 50               # add 50 to current time
-     sw     $v0, 0xffff001c($0)        # request timer interrupt in 50 cycles
+	#below should be code to move the car to the first section
 
-     li     $a0, 10
-     sw     $a0, 0xffff0010($zero)     # drive
+     li     $a0, 32
+	li $a1, 201
+     jal drive
 
 infinite: 
      j      infinite
@@ -42,7 +39,8 @@ infinite:
 
 
 .kdata                # interrupt handler data (separated just for readability)
-chunkIH:.space 8      # space for two registers
+chunkIH:.space 40      # space for two registers -- Don't need the others anymore
+driveFlag:.space 4
 scandata:.space 16384 # space for the scanner to write into
 non_intrpt_str:   .asciiz "Non-interrupt exception\n"
 unhandled_str:    .asciiz "Unhandled interrupt type\n"
@@ -56,7 +54,14 @@ interrupt_handler:
       la      $k0, chunkIH                
       sw      $a0, 0($k0)              # Get some free registers                  
       sw      $a1, 4($k0)              # by storing them to a global variable     
-
+      sw      $a2, 8($k0)
+      sw      $t0, 12($k0)
+      sw      $t1, 16($k0)
+      sw      $t2, 20($k0)
+      sw      $t3, 24($k0)
+      sw      $t4, 28($k0)
+      sw      $v0, 32($k0)
+      sw      $ra, 36($k0)
       mfc0    $k0, $13                 # Get Cause register                       
       srl     $a0, $k0, 2                
       and     $a0, $a0, 0xf            # ExcCode field                            
@@ -97,18 +102,22 @@ scan_interrupt: #Here I want to decode and sort my points (and call another scan
       j       interrupt_dispatch       # see if other interrupts are waiting
 
 timer_interrupt: # Here I want to move on to the next point (or set another timer interrupt to check for more, if I have no tokens but am not done)...
-     # sw      $zero, 0xffff0010($zero) # set velocity to 0
+      sw      $zero, 0xffff0010($zero) # set velocity to 0
       sw      $a1, 0xffff006c($zero)   # acknowledge interrupt
-	li	$k0, 10
-	sw      $k0, 0xffff0010($zero)
       li      $k0, -90                 # $k0= -90
       sw      $k0, 0xffff0014($zero)   # set angle to $k0
       sw      $zero, 0xffff0018($zero) # relative angle
 
-	
+	lw $k0, 0xffff0020($0)
+	sw $k0, 0xffff0080($0)
+	lw $k0, 0xffff0024($0)
+	sw $k0, 0xffff0080($0)
+	li $k0, 1
+	sw $k0, 0xffff0080($0)
+
       lw      $k0, 0xffff001c($0)      # current time
-      add     $k0, $k0, 100000  
-      sw      $k0, 0xffff001c($0)      # request timer in 100000
+      add     $k0, $k0, 10000  
+      sw      $k0, 0xffff001c($0)      # request timer in 10000
 
       j       interrupt_dispatch       # see if other interrupts are waiting
 
@@ -124,6 +133,14 @@ done:
       la      $k0, chunkIH
       lw      $a0, 0($k0)              # Restore saved registers
       lw      $a1, 4($k0)
+      lw      $a2, 8($k0)
+      lw      $t0, 12($k0)
+      lw      $t1, 16($k0)
+      lw      $t2, 20($k0)
+      lw      $t3, 24($k0)
+      lw      $t4, 28($k0)
+      lw      $v0, 32($k0)
+      lw      $ra, 36($k0)
       mfc0    $k0, $14                 # Exception Program Counter (PC)
 .set noat
       move    $at, $k1                 # Restore $at
@@ -143,6 +160,20 @@ done:
 	.data
 three:	.float	3.0
 five:	.float	5.0
+seven:.float	7.0
+nine:	.float	9.0
+eleven:.float	11.0
+thirteen:.float	13.0
+fifteen:.float	15.0
+seventeen:.float	17.0
+nineteen:.float	19.0
+twoone:.float	21.0
+twothree:.float	23.0
+twofive:.float	25.0
+twoseven:.float	27.0
+twonine:.float	29.0
+theone:.float	31.0
+thethree:.float	33.0
 PI:	.float	3.14159
 F180:	.float  180.0
 	
@@ -176,14 +207,84 @@ pos_x:
 
 	mul.s	$f1, $f0, $f0	# v^^2
 	mul.s	$f2, $f1, $f0	# v^^3
-	l.s	$f3, three($zero)	# load 5.0
+	l.s	$f3, three($zero)	# load 3.0
 	div.s 	$f3, $f2, $f3	# v^^3/3
 	sub.s	$f6, $f0, $f3	# v - v^^3/3
 
 	mul.s	$f4, $f1, $f2	# v^^5
-	l.s	$f5, five($zero)	# load 3.0
+	l.s	$f5, five($zero)	# load 5.0
 	div.s 	$f5, $f4, $f5	# v^^5/5
 	add.s	$f6, $f6, $f5	# value = v - v^^3/3 + v^^5/5
+
+	mul.s	$f2, $f1, $f4	# v^^7
+	l.s	$f3, seven($zero)	# load 7.0
+	div.s 	$f3, $f2, $f3	# v^^7/7
+	sub.s	$f6, $f6, $f3	# value - v^^7/7
+
+	mul.s	$f2, $f1, $f2	# v^^9
+	l.s	$f3, nine($zero)	# load 9.0
+	div.s 	$f3, $f2, $f3	# v^^9/9
+	add.s	$f6, $f6, $f3	# value + v^^9/9
+
+	mul.s	$f2, $f1, $f2	# v^^11
+	l.s	$f3, eleven($zero)	# load 11.0
+	div.s 	$f3, $f2, $f3	# v^^11/11
+	sub.s	$f6, $f6, $f3	# value + v^^11/11
+
+	mul.s	$f2, $f1, $f2	# v^^13
+	l.s	$f3, thirteen($zero)	# load 13.0
+	div.s 	$f3, $f2, $f3	# v^^13/13
+	add.s	$f6, $f6, $f3	# value + v^^13/13
+
+	mul.s	$f2, $f1, $f2	# v^^13
+	l.s	$f3, fifteen($zero)	# load 13.0
+	div.s 	$f3, $f2, $f3	# v^^13/13
+	sub.s	$f6, $f6, $f3	# value + v^^13/13
+
+	mul.s	$f2, $f1, $f2	# v^^13
+	l.s	$f3, seventeen($zero)	# load 13.0
+	div.s 	$f3, $f2, $f3	# v^^13/13
+	add.s	$f6, $f6, $f3	# value + v^^13/13
+
+	mul.s	$f2, $f1, $f2	# v^^13
+	l.s	$f3, nineteen($zero)	# load 13.0
+	div.s 	$f3, $f2, $f3	# v^^13/13
+	sub.s	$f6, $f6, $f3	# value + v^^13/13
+
+	mul.s	$f2, $f1, $f2	# v^^13
+	l.s	$f3, twoone($zero)	# load 13.0
+	div.s 	$f3, $f2, $f3	# v^^13/13
+	add.s	$f6, $f6, $f3	# value + v^^13/13
+
+	mul.s	$f2, $f1, $f2	# v^^13
+	l.s	$f3, twothree($zero)	# load 13.0
+	div.s 	$f3, $f2, $f3	# v^^13/13
+	sub.s	$f6, $f6, $f3	# value + v^^13/13
+
+	mul.s	$f2, $f1, $f2	# v^^13
+	l.s	$f3, twofive($zero)	# load 13.0
+	div.s 	$f3, $f2, $f3	# v^^13/13
+	add.s	$f6, $f6, $f3	# value + v^^13/13
+
+	mul.s	$f2, $f1, $f2	# v^^13
+	l.s	$f3, twoseven($zero)	# load 13.0
+	div.s 	$f3, $f2, $f3	# v^^13/13
+	sub.s	$f6, $f6, $f3	# value + v^^13/13
+
+	mul.s	$f2, $f1, $f2	# v^^13
+	l.s	$f3, twonine($zero)	# load 13.0
+	div.s 	$f3, $f2, $f3	# v^^13/13
+	add.s	$f6, $f6, $f3	# value + v^^13/13
+
+	mul.s	$f2, $f1, $f2	# v^^13
+	l.s	$f3, theone($zero)	# load 13.0
+	div.s 	$f3, $f2, $f3	# v^^13/13
+	sub.s	$f6, $f6, $f3	# value + v^^13/13
+
+	mul.s	$f2, $f1, $f2	# v^^13
+	l.s	$f3, thethree($zero)	# load 13.0
+	div.s 	$f3, $f2, $f3	# v^^13/13
+	add.s	$f6, $f6, $f3	# value + v^^13/13
 
 	l.s	$f8, PI($zero)		# load PI
 	div.s	$f6, $f6, $f8	# value / PI
@@ -352,12 +453,14 @@ compact_done:
 #$a0=x, $a1=y
 .data
 wordyo:.space 12
-
+.text
 drive:
-	sw $t0, 0xffff0020 #x-loc
-	sw $t1, 0xffff0024 #y-loc
+	lw $t0, 0xffff0020($0) #x-loc
+	lw $t1, 0xffff0024($0) #y-loc
 	sub $a0, $a0, $t0 #x-delta
 	sub $a1, $a1, $t1 #y-delta
+	sw $a0, 0xffff0080($0) ##
+	sw $a1, 0xffff0080($0) ##
 	la $t0, wordyo # Save variables I still want (also $ra)
 	sw $a0, 0($t0)
 	sw $a1, 4($t0)
@@ -368,8 +471,9 @@ drive:
 	lw $a1, 4($t0)
 	lw $ra, 8($t0)
 	sw $v0, 0xffff0014($0) # change angle
+	sw $v0, 0xffff0080($0) ##
 	li $t0, 1
-	sw $t0, 0xffff0018
+	sw $t0, 0xffff0018($0)
 	abs $a0, $a0 # find distance
 	abs $a1, $a1
 	add $t0, $a0, 0
@@ -380,9 +484,12 @@ drive_afterif:
 	mul $a1, $a1, $a1
 	add $a0, $a1, $a0
 drive_loop:
-	bge $t0, $a1, drive_end
+	mul $t1, $t0, $t0
+	bgt $t1, $a0, drive_end
 	addi $t0, $t0, 3
+	j drive_loop
 drive_end:
+	sw $t0, 0xffff0080($0) ##
 	mul $t0, $t0, 500
 	li $t1, 10
 	sw $t1, 0xffff0010($0) # set velocity to 10
