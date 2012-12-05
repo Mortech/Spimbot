@@ -24,6 +24,14 @@ main:                                  # ENABLE INTERRUPTS
      mtc0   $t4, $12                   # set interrupt mask (Status register)
      
 	#Start a scan here
+	li $t4, 150
+	sw $t4, 0xffff0050($0)
+	li $t4, 150
+	sw $t4, 0xffff0054($0)
+	li $t4, 142
+	sw $t4, 0xffff0058($0)
+	la $t4, scandata
+	sw $t4, 0xffff005c($0)
 
 	#below should be code to move the car to the first section (currently there is nothing)
                                        # REQUEST TIMER INTERRUPT
@@ -41,6 +49,7 @@ infinite:
 
 .kdata                # interrupt handler data (separated just for readability)
 chunkIH:.space 8      # space for two registers
+scandata:.space 16384 # space for the scanner to write into
 non_intrpt_str:   .asciiz "Non-interrupt exception\n"
 unhandled_str:    .asciiz "Unhandled interrupt type\n"
 
@@ -69,7 +78,7 @@ interrupt_dispatch:                    # Interrupt:
       and     $a0, $k0, 0x8000         # is there a timer interrupt?
       bne     $a0, 0, timer_interrupt
 
-	 and     $a0, $k0, 0x2000         # is there a scan interrupt?
+	and     $a0, $k0, 0x2000         # is there a scan interrupt?
       bne     $a0, 0, scan_interrupt
 
                          # add dispatch for other interrupt types here.
@@ -94,15 +103,16 @@ scan_interrupt: #Here I want to decode and sort my points (and call another scan
       j       interrupt_dispatch       # see if other interrupts are waiting
 
 timer_interrupt: # Here I want to move on to the next point (or set another timer interrupt to check for more, if I have no tokens but am not done)...
-      sw      $zero, 0xffff0010($zero) # set velocity to 0
+     # sw      $zero, 0xffff0010($zero) # set velocity to 0
       sw      $a1, 0xffff006c($zero)   # acknowledge interrupt
-
+	li	$k0, 10
+	sw      $k0, 0xffff0010($zero)
       li      $k0, -90                 # $k0= -90
       sw      $k0, 0xffff0014($zero)   # set angle to $k0
       sw      $zero, 0xffff0018($zero) # relative angle
-
+	
       lw      $k0, 0xffff001c($0)      # current time
-      add     $k0, $k0, 10000  
+      add     $k0, $k0, 100000  
       sw      $k0, 0xffff001c($0)      # request timer in 10000
 
       j       interrupt_dispatch       # see if other interrupts are waiting
