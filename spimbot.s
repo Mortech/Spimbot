@@ -7,6 +7,8 @@
 # tokens have a radius of 2 (but the angle algorithm isn't exact, so we need the buffer)
 # Don't need to stop to pick up a token, but we will to change heading
 
+#Strategy so far: Scan the map in a specific order, moving from one section to the next until we have covered the entire map.
+
 main:                                  # ENABLE INTERRUPTS
      li     $t4, 0x8000                # timer interrupt enable bit
      or     $t4, $t4, 0x2000           # scan interrupt bit
@@ -14,7 +16,9 @@ main:                                  # ENABLE INTERRUPTS
      or     $t4, $t4, 1                # global interrupt enable
      mtc0   $t4, $12                   # set interrupt mask (Status register)
      
-	#
+	#Start a scan here
+
+	#below should be code to move the car to the first section (currently there is nothing)
                                        # REQUEST TIMER INTERRUPT
      lw     $v0, 0xffff001c($0)        # read current time
      add    $v0, $v0, 50               # add 50 to current time
@@ -58,6 +62,9 @@ interrupt_dispatch:                    # Interrupt:
       and     $a0, $k0, 0x8000         # is there a timer interrupt?
       bne     $a0, 0, timer_interrupt
 
+	 and     $a0, $k0, 0x2000         # is there a scan interrupt?
+      bne     $a0, 0, scan_interrupt
+
                          # add dispatch for other interrupt types here.
 	add $k0, $v0, $zero
       li      $v0, 4                   # Unhandled interrupt types
@@ -67,13 +74,20 @@ interrupt_dispatch:                    # Interrupt:
 	add $v0, $k0, $zero
       j       done
 
-bonk_interrupt:
+bonk_interrupt: #bonk shouldn't ever happen, do not need to worry about it...
       sw      $zero, 0xffff0010($zero) # set velocity to 0
       sw      $a1, 0xffff0060($zero)   # acknowledge interrupt
 
       j       interrupt_dispatch       # see if other interrupts are waiting
 
-timer_interrupt:
+scan_interrupt: #Here I want to decode and sort my points (and call another scan)
+      sw      $zero, 0xffff0010($zero) # set velocity to 0
+      sw      $a1, 0xffff0064($zero)   # acknowledge interrupt
+
+      j       interrupt_dispatch       # see if other interrupts are waiting
+
+timer_interrupt: # Here I want to move on to the next point (or set another timer interrupt to check for more, if I have no tokens but am not done)...
+      sw      $zero, 0xffff0010($zero) # set velocity to 0
       sw      $a1, 0xffff006c($zero)   # acknowledge interrupt
 
       li      $k0, -90                 # $k0= -90
@@ -108,7 +122,7 @@ done:
 
 
 
-
+# $a0=xdelta, $a1=ydelta
 # CS232 Arctangent infinite series approximation example
 # see: http://www.escape.com/~paulg53/math/pi/greg/
 # computes  x - x^3/3 + x^5/5
