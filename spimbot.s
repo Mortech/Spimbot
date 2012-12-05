@@ -1,23 +1,24 @@
-	 .data
-	Scan_data:	.space 163840,
+ .data
+Scan_data:	.space 163840
 	#16384 bytes per and 10 parts(9 pluse all) of it so  total 163840
 
-	scancontrol:	.word 16384 #counter for scanning
-	tokenHunt:	.word 0	#counter for collecting
+scancontrol:	.word 0 #counter for scanning
+tokenHunt:	.word 0	#counter for collecting
 
+scanlocX: .byte 150, 50, 50, 50, 150, 250, 250, 250
+scanlocy: .byte 250, 250, 150, 50, 50, 50, 150, 250	
 
+.text
 
-	.text
-
-	# SPIMbot MMIO
-	velocity	= 0xffff0010	# -10 to 10, Immediately updates SPIMbot's velocity
-	angle		= 0xffff0014	# -360 to 360, used when orientation_control is written to turn SPIMbot
-	angle_type	= 0xffff0018	# 0 relative, 1 absolute
-	time		= 0xffff001c	# 0 to 0xffffffff, reading gives the number of elapsed cycles, writing requests an interrupt at given time
-	x_loc		= 0xffff0020	# 0 to 300, gives SPIMbot's x coord
-	y_loc		= 0xffff0024	# 0 to 300, gives SPIMbot's y coord
-	print_int	= 0xffff0080	# Prints an int to the screen
-	print_float	= 0xffff0084	# Prints a float to the screen
+# SPIMbot MMIO
+velocity	= 0xffff0010	# -10 to 10, Immediately updates SPIMbot's velocity
+angle		= 0xffff0014	# -360 to 360, used when orientation_control is written to turn SPIMbot
+angle_type	= 0xffff0018	# 0 relative, 1 absolute
+time		= 0xffff001c	# 0 to 0xffffffff, reading gives the number of elapsed cycles, writing requests an interrupt at given time
+x_loc		= 0xffff0020	# 0 to 300, gives SPIMbot's x coord
+y_loc		= 0xffff0024	# 0 to 300, gives SPIMbot's y coord
+print_int	= 0xffff0080	# Prints an int to the screen
+print_float	= 0xffff0084	# Prints a float to the screen
 	
 	# NOTE: This is just my code for Lab9. A lot needs changing.
 
@@ -28,139 +29,150 @@
 
 	#Strategy so far: Scan the map in a specific order, moving from one section to the next until we have covered the entire map.
 
-	main:                                  # ENABLE INTERRUPTS
-	     li     $t4, 0x8000                # timer interrupt enable bit
-	     or     $t4, $t4, 0x2000           # scan interrupt bit
-	     or     $t4, $t4, 0x1000           # bonk interrupt bit
-	     or     $t4, $t4, 1                # global interrupt enable
-	     mtc0   $t4, $12                   # set interrupt mask (Status register)
+main:                                  # ENABLE INTERRUPTS
+     li     $t4, 0x8000                # timer interrupt enable bit
+     or     $t4, $t4, 0x2000           # scan interrupt bit
+     or     $t4, $t4, 0x1000           # bonk interrupt bit
+     or     $t4, $t4, 1                # global interrupt enable
+     mtc0   $t4, $12                   # set interrupt mask (Status register)
 	     
 	#Start a scan here
 	li $t4, 150
 	sw $t4, 0xffff0050($0)
 	li $t4, 150
 	sw $t4, 0xffff0054($0)
-	li $t4, 142
+	li $t4, 50
 	sw $t4, 0xffff0058($0)
 	la $t4, Scan_data
 	sw $t4, 0xffff005c($0)
 
 	#below should be code to move the car to the first section (currently there is nothing)
 	                                       # REQUEST TIMER INTERRUPT
-	     lw     $v0, 0xffff001c($0)        # read current time
-	     add    $v0, $v0, 50               # add 50 to current time
-	     sw     $v0, 0xffff001c($0)        # request timer interrupt in 50 cycles
+         lw     $v0, 0xffff001c($0)        # read current time
+	add    $v0, $v0, 50               # add 50 to current time
+     sw     $v0, 0xffff001c($0)        # request timer interrupt in 50 cycles
 
-	     li     $a0, 10
-	     sw     $a0, 0xffff0010($zero)     # drive
+     li     $a0, 10
+     sw     $a0, 0xffff0010($zero)     # drive
 
-	infinite: 
-	     j      infinite
-	     nop
-
-
-	.kdata                # interrupt handler data (separated just for readability)
-	chunkIH:.space 8      # space for two registers
-	scandata:.space 16384 # space for the scanner to write into
-	non_intrpt_str:   .asciiz "Non-interrupt exception\n"
-	unhandled_str:    .asciiz "Unhandled interrupt type\n"
+infinite: 
+     j      infinite
+     nop
 
 
-	.ktext 0x80000180
-	interrupt_handler:
-	.set noat
-	      move      $k1, $at               # Save $at                               
-	.set at
-	      la      $k0, chunkIH                
-	  	    sw      $a0, 0($k0)              # Get some free registers                  
-	      sw      $a1, 4($k0)              # by storing them to a global variable     
+.kdata                # interrupt handler data (separated just for readability)
+chunkIH:.space 8      # space for two registers
+scandata:.space 16384 # space for the scanner to write into
+non_intrpt_str:   .asciiz "Non-interrupt exception\n"
+unhandled_str:    .asciiz "Unhandled interrupt type\n"
 
-	      mfc0    $k0, $13                 # Get Cause register                       
-	      srl     $a0, $k0, 2                
-	      and     $a0, $a0, 0xf            # ExcCode field                            
-	      bne     $a0, 0, non_intrpt         
 
-	interrupt_dispatch:                    # Interrupt:                             
-	      mfc0    $k0, $13                 # Get Cause register, again                 
-	      beq     $k0, $zero, done         # handled all outstanding interrupts     
-	  
-	      and     $a0, $k0, 0x1000         # is there a bonk interrupt?                
-	      bne     $a0, 0, bonk_interrupt   
+.ktext 0x80000180
+interrupt_handler:
+.set noat
+      move      $k1, $at               # Save $at                               
+.set at
+      la      $k0, chunkIH                
+            sw      $a0, 0($k0)              # Get some free registers                  
+      sw      $a1, 4($k0)              # by storing them to a global variable     
 
-	      and     $a0, $k0, 0x8000         # is there a timer interrupt?
-	      bne     $a0, 0, timer_interrupt
+      mfc0    $k0, $13                 # Get Cause register                       
+      srl     $a0, $k0, 2                
+      and     $a0, $a0, 0xf            # ExcCode field                            
+      bne     $a0, 0, non_intrpt         
 
-	and     $a0, $k0, 0x2000         # is there a scan interrupt?
-	      bne     $a0, 0, scan_interrupt
+interrupt_dispatch:                    # Interrupt:                             
+      mfc0    $k0, $13                 # Get Cause register, again                 
+      beq     $k0, $zero, done         # handled all outstanding interrupts     
 
-	                         # add dispatch for other interrupt types here.
-	add $k0, $v0, $zero
-	      li      $v0, 4                   # Unhandled interrupt types
+      and     $a0, $k0, 0x1000         # is there a bonk interrupt?                
+      bne     $a0, 0, bonk_interrupt   
 
-	      la      $a0, unhandled_str
-	      syscall 
-	add $v0, $k0, $zero
-	      j       done
+      and     $a0, $k0, 0x8000         # is there a timer interrupt?
+      bne     $a0, 0, timer_interrupt
 
-	bonk_interrupt: #bonk shouldn't ever happen, do not need to worry about it...
-	      sw      $zero, 0xffff0010($zero) # set velocity to 0
-	      sw      $a1, 0xffff0060($zero)   # acknowledge interrupt
-	
-	      j       interrupt_dispatch       # see if other interrupts are waiting
+and     $a0, $k0, 0x2000         # is there a scan interrupt?
+      bne     $a0, 0, scan_interrupt
 
-	scan_interrupt: #Here I want to call a fresh scan and save my first for prossesing
-	     # sw      $zero, 0xffff0010($zero) # set velocity to 0
-		sw      $a1, 0xffff0064($zero)   # acknowledge interrupt
-		lw  	$a1, scancontrol($0)
-		li      $a0 163840
-		beq 	$a0, $a1, interrupt_dispatch
-		add 	$a1, $a1, 16384
-		sw 	$a1, scancontrol($0)
-		li $a1, 150
-		sw $a1, 0xffff0050($0)
-		li $a1, 150
-		sw $a1, 0xffff0054($0)
-		li $a1, 142
-		sw $a1, 0xffff0058($0)
-		la $a1, Scan_data
-		sw $a1, 0xffff005c($0)
-	
-		j       interrupt_dispatch       # see if other interrupts are waiting
+                         # add dispatch for other interrupt types here.
+add $k0, $v0, $zero
+      li      $v0, 4                   # Unhandled interrupt types
 
-	timer_interrupt: # Here I want to move on to the next point (or set another timer interrupt to check for more, if I have no tokens but am not done)...
-	     # sw      $zero, 0xffff0010($zero) # set velocity to 0
-	      sw      $a1, 0xffff006c($zero)   # acknowledge interrupt
-	li	$k0, 10
-	sw      $k0, 0xffff0010($zero)
-	      li      $k0, -90                 # $k0= -90
-	      sw      $k0, 0xffff0014($zero)   # set angle to $k0
-	      sw      $zero, 0xffff0018($zero) # relative angle
-	
-	      lw      $k0, 0xffff001c($0)      # current time
-	      add     $k0, $k0, 100000  
-	      sw      $k0, 0xffff001c($0)      # request timer in 10000
+      la      $a0, unhandled_str
+      syscall 
+add $v0, $k0, $zero
+      j       done
 
-	      j       interrupt_dispatch       # see if other interrupts are waiting
+bonk_interrupt: #bonk shouldn't ever happen, do not need to worry about it...
+      sw      $zero, 0xffff0010($zero) # set velocity to 0
+      sw      $a1, 0xffff0060($zero)   # acknowledge interrupt
 
-	non_intrpt:                            # was some non-interrupt
-	add $k0, $v0, $zero
-	      li      $v0, 4
-	      la      $a0, non_intrpt_str
-	      syscall                          # print out an error message
-	add $v0, $k0, $zero
-	      # fall through to done
+      j       interrupt_dispatch       # see if other interrupts are waiting
 
-	done:
-	      la      $k0, chunkIH
-	      lw      $a0, 0($k0)              # Restore saved registers
-	      lw      $a1, 4($k0)
-	      mfc0    $k0, $14                 # Exception Program Counter (PC)
-	.set noat
-	      move    $at, $k1                 # Restore $at
-	.set at 
-	      rfe   
-	      jr      $k0
-	      nop
+scan_interrupt: #Here I want to call a fresh scan and save my first for prossesing
+     # sw      $zero, 0xffff0010($zero) # set velocity to 0
+        sw      $a1, 0xffff0064($zero)   # acknowledge interrupt
+        lw  	$a1, scancontrol($0)
+        li      $a0 9
+        beq 	$a0, $a1, lastTime10
+        add 	$a1, $a1, 1 
+        sw 	$a1, scancontrol($0)
+	 
+        li $a1, 150
+        sw $a1, 0xffff0050($0)
+        li $a1, 150
+        sw $a1, 0xffff0054($0)
+        li $a1, 50
+        sw $a1, 0xffff0058($0)
+        la $a1, Scan_data
+        sw $a1, 0xffff005c($0)
+
+        j       interrupt_dispatch       # see if other interrupts are waiting
+lastTime10:
+	 li $a1, 150
+        sw $a1, 0xffff0050($0)
+        li $a1, 150
+        sw $a1, 0xffff0054($0)
+        li $a1, 150
+        sw $a1, 0xffff0058($0)
+        la $a1, Scan_data
+        sw $a1, 0xffff005c($0)
+
+
+timer_interrupt: # Here I want to move on to the next point (or set another timer interrupt to check for more, if I have no tokens but am not done)...
+     # sw      $zero, 0xffff0010($zero) # set velocity to 0
+      sw      $a1, 0xffff006c($zero)   # acknowledge interrupt
+li	$k0, 10
+sw      $k0, 0xffff0010($zero)
+      li      $k0, -90                 # $k0= -90
+      sw      $k0, 0xffff0014($zero)   # set angle to $k0
+      sw      $zero, 0xffff0018($zero) # relative angle
+
+      lw      $k0, 0xffff001c($0)      # current time
+      add     $k0, $k0, 100000  
+      sw      $k0, 0xffff001c($0)      # request timer in 10000
+
+      j       interrupt_dispatch       # see if other interrupts are waiting
+
+non_intrpt:                            # was some non-interrupt
+add $k0, $v0, $zero
+      li      $v0, 4
+      la      $a0, non_intrpt_str
+      syscall                          # print out an error message
+add $v0, $k0, $zero
+      # fall through to done
+
+done:
+      la      $k0, chunkIH
+      lw      $a0, 0($k0)              # Restore saved registers
+      lw      $a1, 4($k0)
+      mfc0    $k0, $14                 # Exception Program Counter (PC)
+.set noat
+      move    $at, $k1                 # Restore $at
+.set at 
+      rfe   
+      jr      $k0
+      nop
 
 
 
