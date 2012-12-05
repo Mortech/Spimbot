@@ -1,14 +1,38 @@
+ .data
+Scan_data:	.space 163840
+	#16384 bytes per and 10 parts(9 pluse all) of it so  total 163840
+
+scancontrol:	.word 0 #counter for scanning
+tokenHunt:	.word 0	#counter for collecting
+driveFlag:.word 0 #driving flag
+
+scanlocX: .word 1, 150, 50, 50, 50, 150, 250, 250, 250 # the first one is a flag
+scanlocY: .word 0, 250, 250, 150, 50, 50, 50, 150, 250	
+wordyo:.space 12
+	
 .text
 
-# NOTE: This is just my code for Lab9. A lot needs changing.
+# SPIMbot MMIO
+velocity	= 0xffff0010	# -10 to 10, Immediately updates SPIMbot's velocity
+angle		= 0xffff0014	# -360 to 360, used when orientation_control is written to turn SPIMbot
+angle_type	= 0xffff0018	# 0 relative, 1 absolute
+time		= 0xffff001c	# 0 to 0xffffffff, reading gives the number of elapsed cycles, writing requests an interrupt at given time
+x_loc		= 0xffff0020	# 0 to 300, gives SPIMbot's x coord
+y_loc		= 0xffff0024	# 0 to 300, gives SPIMbot's y coord
+print_int	= 0xffff0080	# Prints an int to the screen
+print_float	= 0xffff0084	# Prints a float to the screen
+	
+	# NOTE: This is just my code for Lab9. A lot needs changing.
 
-# The arena is 300x300
-# Therefore, for areas of 100x100, circles of radius 100=touching, 142=overlapping
-# tokens have a radius of 2 (but the angle algorithm isn't exact, so we need the buffer)
-# Don't need to stop to pick up a token, but we will to change heading
-# TIME SYSTEM: 100,000=200, 1,000=2, 500=1
 
-#Strategy so far: Scan the map in a specific order, moving from one section to the next until we have covered the entire map.
+	# The arena is 300x300
+	# Therefore, for areas of 100x100, circles of radius 100=touching, 142=overlapping
+	# tokens have a radius of 2 (but the angle algorithm isn't exact, so we need the buffer)
+	# Don't need to stop to pick up a token, but we will to change heading
+	# TIME SYSTEM: 100,000=200, 1,000=2, 500=1
+
+
+	#Strategy so far: Scan the map in a specific order, moving from one section to the next until we have covered the entire map.
 
 main:                                  # ENABLE INTERRUPTS
      li     $t4, 0x8000                # timer interrupt enable bit
@@ -16,16 +40,17 @@ main:                                  # ENABLE INTERRUPTS
      or     $t4, $t4, 0x1000           # bonk interrupt bit
      or     $t4, $t4, 1                # global interrupt enable
      mtc0   $t4, $12                   # set interrupt mask (Status register)
-     
+	     
 	#Start a scan here
-#	li $t4, 150
-#	sw $t4, 0xffff0050($0)
-#	li $t4, 150
-#	sw $t4, 0xffff0054($0)
-#	li $t4, 142
-#	sw $t4, 0xffff0058($0)
-#	la $t4, scandata
-#	sw $t4, 0xffff005c($0)
+
+	li $t4, 150
+	sw $t4, 0xffff0050($0)
+	li $t4, 150
+	sw $t4, 0xffff0054($0)
+	li $t4, 50
+	sw $t4, 0xffff0058($0)
+	la $t4, Scan_data
+	sw $t4, 0xffff005c($0)
 
 	#below should be code to move the car to the first section
 
@@ -40,7 +65,6 @@ infinite:
 
 .kdata                # interrupt handler data (separated just for readability)
 chunkIH:.space 40      # space for two registers -- Don't need the others anymore
-driveFlag:.space 4
 scandata:.space 16384 # space for the scanner to write into
 non_intrpt_str:   .asciiz "Non-interrupt exception\n"
 unhandled_str:    .asciiz "Unhandled interrupt type\n"
@@ -52,7 +76,7 @@ interrupt_handler:
       move      $k1, $at               # Save $at                               
 .set at
       la      $k0, chunkIH                
-      sw      $a0, 0($k0)              # Get some free registers                  
+            sw      $a0, 0($k0)              # Get some free registers                  
       sw      $a1, 4($k0)              # by storing them to a global variable     
       sw      $a2, 8($k0)
       sw      $t0, 12($k0)
@@ -70,23 +94,23 @@ interrupt_handler:
 interrupt_dispatch:                    # Interrupt:                             
       mfc0    $k0, $13                 # Get Cause register, again                 
       beq     $k0, $zero, done         # handled all outstanding interrupts     
-  
+
       and     $a0, $k0, 0x1000         # is there a bonk interrupt?                
       bne     $a0, 0, bonk_interrupt   
 
       and     $a0, $k0, 0x8000         # is there a timer interrupt?
       bne     $a0, 0, timer_interrupt
 
-	and     $a0, $k0, 0x2000         # is there a scan interrupt?
+and     $a0, $k0, 0x2000         # is there a scan interrupt?
       bne     $a0, 0, scan_interrupt
 
                          # add dispatch for other interrupt types here.
-	add $k0, $v0, $zero
+add $k0, $v0, $zero
       li      $v0, 4                   # Unhandled interrupt types
 
       la      $a0, unhandled_str
       syscall 
-	add $v0, $k0, $zero
+add $v0, $k0, $zero
       j       done
 
 bonk_interrupt: #bonk shouldn't ever happen, do not need to worry about it...
@@ -95,11 +119,41 @@ bonk_interrupt: #bonk shouldn't ever happen, do not need to worry about it...
 
       j       interrupt_dispatch       # see if other interrupts are waiting
 
-scan_interrupt: #Here I want to decode and sort my points (and call another scan)
-      sw      $zero, 0xffff0010($zero) # set velocity to 0
-      sw      $a1, 0xffff0064($zero)   # acknowledge interrupt
+scan_interrupt: #Here I want to call a fresh scan and save my first for prossesing
+     # sw      $zero, 0xffff0010($zero) # set velocity to 0
+        sw      $a1, 0xffff0064($zero)   # acknowledge interrupt
+        lw  	$a2, scancontrol($0) #a2 is the scan number
+        li      $a0 8 #the 8th time will stor the 9th value
+        beq 	$a0, $a2, lastTime10
+        add 	$a2, $a2, 1 
+        sw 	$a2, scancontrol($0)
+	mul	$a2, $a2 4
+	lw 	$a1, scanlocX($a2)
+        sw 	$a1, 0xffff0050($0)
+        lw	$a1, scanlocY($a2)
+        sw 	$a1, 0xffff0054($0)
+        li 	$a1, 50
+        sw 	$a1, 0xffff0058($0)
+        la 	$a1, Scan_data
+	mul	$a2, $a2, 4096 #(calulate the offset 4098 times 4 is16384)
+	add	$a1, $a1, $a2  #add the offset
+        sw 	$a1, 0xffff005c($0)
 
-      j       interrupt_dispatch       # see if other interrupts are waiting
+        j       interrupt_dispatch       # see if other interrupts are waiting
+lastTime10:
+	lw	$a1, scanlocX($0)
+	beq	$a1, $0, interrupt_dispatch
+	sw	$0, scanlocX($0)
+	 li 	$a1, 150
+        sw 	$a1, 0xffff0050($0)
+        li 	$a1, 150
+        sw 	$a1, 0xffff0054($0)
+        li 	$a1, 300
+        sw 	$a1, 0xffff0058($0)
+	la 	$a1, Scan_data
+	add	$a1, 147456         #9 times 16384 
+        sw 	$a1, 0xffff005c($0)
+	 j       interrupt_dispatch       # see if other interrupts are waiting
 
 timer_interrupt: # Here I want to move on to the next point (or set another timer interrupt to check for more, if I have no tokens but am not done)...
       sw      $zero, 0xffff0010($zero) # set velocity to 0
@@ -108,12 +162,6 @@ timer_interrupt: # Here I want to move on to the next point (or set another time
       sw      $k0, 0xffff0014($zero)   # set angle to $k0
       sw      $zero, 0xffff0018($zero) # relative angle
 
-	lw $k0, 0xffff0020($0)
-	sw $k0, 0xffff0080($0)
-	lw $k0, 0xffff0024($0)
-	sw $k0, 0xffff0080($0)
-	li $k0, 1
-	sw $k0, 0xffff0080($0)
 
       lw      $k0, 0xffff001c($0)      # current time
       add     $k0, $k0, 10000  
@@ -122,11 +170,11 @@ timer_interrupt: # Here I want to move on to the next point (or set another time
       j       interrupt_dispatch       # see if other interrupts are waiting
 
 non_intrpt:                            # was some non-interrupt
-	add $k0, $v0, $zero
+add $k0, $v0, $zero
       li      $v0, 4
       la      $a0, non_intrpt_str
       syscall                          # print out an error message
-	add $v0, $k0, $zero
+add $v0, $k0, $zero
       # fall through to done
 
 done:
@@ -151,34 +199,34 @@ done:
 
 
 
-# $a0=xdelta, $a1=ydelta
-# CS232 Arctangent infinite series approximation example
-# see: http://www.escape.com/~paulg53/math/pi/greg/
-# computes  x - x^3/3 + x^5/5
-# -----------------------------------------------------------------------
+	# $a0=xdelta, $a1=ydelta
+	# CS232 Arctangent infinite series approximation example
+	# see: http://www.escape.com/~paulg53/math/pi/greg/
+	# computes  x - x^3/3 + x^5/5
+	# -----------------------------------------------------------------------
 
 	.data
-three:	.float	3.0
-five:	.float	5.0
-seven:.float	7.0
-nine:	.float	9.0
-eleven:.float	11.0
-thirteen:.float	13.0
-fifteen:.float	15.0
-seventeen:.float	17.0
-nineteen:.float	19.0
-twoone:.float	21.0
-twothree:.float	23.0
-twofive:.float	25.0
-twoseven:.float	27.0
-twonine:.float	29.0
-theone:.float	31.0
-thethree:.float	33.0
-PI:	.float	3.14159
-F180:	.float  180.0
+	three:	.float	3.0
+	five:	.float	5.0
+	seven:.float	7.0
+	nine:	.float	9.0
+	eleven:.float	11.0
+	thirteen:.float	13.0
+	fifteen:.float	15.0
+	seventeen:.float	17.0
+	nineteen:.float	19.0
+	twoone:.float	21.0
+	twothree:.float	23.0
+	twofive:.float	25.0
+	twoseven:.float	27.0
+	twonine:.float	29.0
+	theone:.float	31.0
+	thethree:.float	33.0
+	PI:	.float	3.14159
+	F180:	.float  180.0
 	
 	.text
-sb_arctan:
+	sb_arctan:
 	li	$v0, 0		# angle = 0;
 
 	abs	$t0, $a0	# get absolute values
@@ -191,13 +239,13 @@ sb_arctan:
 	move	$a0, $t0	# x = temp;    
 	li	$v0, 90		# angle = 90;  
 
-no_TURN_90:
+	no_TURN_90:
 	bge	$a0, $zero, pos_x 	# skip if (x >= 0)
 
 	## if (x < 0) 
 	add	$v0, $v0, 180	# angle += 180;
 
-pos_x:
+	pos_x:
 	mtc1	$a0, $f0
 	mtc1	$a1, $f1
 	cvt.s.w $f0, $f0	# convert from ints to floats
@@ -298,9 +346,9 @@ pos_x:
 	jr 	$ra
 	
 
-# copy your "insert_element_after" and "remove_element" functions here
+	# copy your "insert_element_after" and "remove_element" functions here
 
-insert_element_after:	
+	insert_element_after:	
 	# inserts the new element $a0 after $a1
 	# if $a1 is 0, then we insert at the front of the list
 
@@ -311,43 +359,43 @@ insert_element_after:
 	beqz	$t0, iea_after_head	# if ( mylist->head != NULL ) {
 	sw	$a0, 4($t0)		#   mylist->head->prev = node;
 		     			# }
-iea_after_head:	
+	iea_after_head:	
 	sw	$a0, 0($a2)		# mylist->head = node;
 	lw	$t0, 4($a2)		# $t0 = mylist->tail
 	bnez	$t0, iea_done		# if ( mylist->tail == NULL ) {
 	sw	$a0, 4($a2)		#   mylist->tail = node;
-iea_done:	     			# }
+	iea_done:	     			# }
 	jr	$ra
 
-iea_not_head:
+	iea_not_head:
 	lw	$t1, 8($a1)		# $t1 = prev->next
 	bne	$t1, $zero, iea_not_tail# if ( prev->next == NULL ) {
 	sw	$a0, 4($a2)		#   mylist->tail = node;
 	b	iea_end			# }
-iea_not_tail:				# else {
+	iea_not_tail:				# else {
 	sw	$t1, 8($a0)		#   node->next = prev->next;
 	sw	$a0, 4($t1)		#   node->next->prev = node;
 		     			# }
 
-iea_end:	
+	iea_end:	
 	sw	$a0, 8($a1)		# store the new pointer as the next of $a1
 	sw	$a1, 4($a0)		# store the old pointer as prev of $a0
 	jr	$ra			# return
 	# END insert_element_after
 
-remove_element:
+	remove_element:
 	# removes the element at $a0 (list is in $a1)
 	# if this element is the whole list, we have to empty the list
 	lw	$t0, 0($a1)  	        # t0 = mylist->head
 	lw	$t1, 4($a1)  	        # t1 = mylist->tail
 	bne	$t0, $t1, re_not_empty_list
 
-re_empty_list:
+	re_empty_list:
 	sw	$zero, 0($a1)		# zero out the head ptr
 	sw	$zero, 4($a1)		# zero out the tail ptr
 	j	re_done
 
-re_not_empty_list:
+	re_not_empty_list:
 	lw	$t2, 4($a0)		# t2 = node->prev
 	lw	$t3, 8($a0)		# t3 = node->next
 	bne	$t2, $zero, re_not_first# if (node->prev == NULL) {
@@ -356,43 +404,43 @@ re_not_empty_list:
 	sw	$zero, 4($t3)		# node->next->prev = NULL;
 	j	re_done
 
-re_not_first: 
+	re_not_first: 
 	bne	$t3, $zero, re_not_last# if (node->next == NULL) {
 	sw	$t2, 4($a1)		# mylist->tail = node->prev;
 	sw	$zero, 8($t2)		# node->prev->next = NULL;
 	j	re_done
-re_not_last:
+	re_not_last:
 	sw	$t3, 8($t2)		# node->prev->next = node->next;
 	sw	$t2, 4($t3)		# node->next->prev = node->prev;
 
-re_done:
+	re_done:
 	sw	$zero, 4($a0)		# zero out $a0's prev
 	sw	$zero, 8($a0)		# zero out $a0's next
 	jr	$ra			# return
 	# END remove_element
 	
-sort_list:  # $a0 = mylist
+	sort_list:  # $a0 = mylist
 	lw	$t0, 0($a0)  	        # t0 = mylist->head, smallest
 	lw	$t1, 4($a0)  	        # t1 = mylist->tail
 	bne	$t0, $t1, sl_2_or_more	# if (mylist->head == mylist->tail) {
 	jr	$ra  	  		#    return;
 
-sl_2_or_more:
+	sl_2_or_more:
 	sub	$sp, $sp, 12
 	sw	$ra, 0($sp)		# save $ra
 	sw	$a0, 4($sp)		# save my_list
 	lw	$t1, 8($t0)  	        # t1 = trav = smallest->next
-sl_loop:
+	sl_loop:
 	beq	$t1, $zero, sl_loop_done # trav != NULL
 	lw	$t3, 0($t1) 		# trav->data
 	lw	$t2, 0($t0) 		# smallest->data
 	bge	$t3, $t2, sl_skip	# inverse of: if (trav->data < smallest->data) { 
 	move	$t0, $t1		# smallest = trav;
-sl_skip:
+	sl_skip:
 	lw	$t1, 8($t1)		# trav = trav->next
 	j	sl_loop
 	
-sl_loop_done:
+	sl_loop_done:
 	sw	$t0, 8($sp)		# save smallest
 
 	move	$a1, $a0		# my_list is arg2
@@ -411,6 +459,7 @@ sl_loop_done:
 	add	$sp, $sp, 12
 	jr	$ra
 	# END sort_list
+
 
 
 compact:
@@ -451,9 +500,6 @@ compact_done:
 
 #Function will set bot to drive to the x, y location.
 #$a0=x, $a1=y
-.data
-wordyo:.space 12
-.text
 drive:
 	lw $t0, 0xffff0020($0) #x-loc
 	lw $t1, 0xffff0024($0) #y-loc
