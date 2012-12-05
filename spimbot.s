@@ -5,8 +5,8 @@ Scan_data:	.space 163840
 scancontrol:	.word 0 #counter for scanning
 tokenHunt:	.word 0	#counter for collecting
 
-scanlocX: .byte 150, 50, 50, 50, 150, 250, 250, 250
-scanlocy: .byte 250, 250, 150, 50, 50, 50, 150, 250	
+scanlocX: .word 1, 150, 50, 50, 50, 150, 250, 250, 250 # the first one is a flag
+scanlocY: .word 0, 250, 250, 150, 50, 50, 50, 150, 250	
 
 .text
 
@@ -112,32 +112,38 @@ bonk_interrupt: #bonk shouldn't ever happen, do not need to worry about it...
 scan_interrupt: #Here I want to call a fresh scan and save my first for prossesing
      # sw      $zero, 0xffff0010($zero) # set velocity to 0
         sw      $a1, 0xffff0064($zero)   # acknowledge interrupt
-        lw  	$a1, scancontrol($0)
-        li      $a0 9
-        beq 	$a0, $a1, lastTime10
-        add 	$a1, $a1, 1 
-        sw 	$a1, scancontrol($0)
-	 
-        li $a1, 150
-        sw $a1, 0xffff0050($0)
-        li $a1, 150
-        sw $a1, 0xffff0054($0)
-        li $a1, 50
-        sw $a1, 0xffff0058($0)
-        la $a1, Scan_data
-        sw $a1, 0xffff005c($0)
+        lw  	$a2, scancontrol($0) #a2 is the scan number
+        li      $a0 8 #the 8th time will stor the 9th value
+        beq 	$a0, $a2, lastTime10
+        add 	$a2, $a2, 1 
+        sw 	$a2, scancontrol($0)
+	mul	$a2, $a2 4
+	lw 	$a1, scanlocX($a2)
+        sw 	$a1, 0xffff0050($0)
+        lw	$a1, scanlocY($a2)
+        sw 	$a1, 0xffff0054($0)
+        li 	$a1, 50
+        sw 	$a1, 0xffff0058($0)
+        la 	$a1, Scan_data
+	mul	$a2, $a2, 4096 #(calulate the offset 4098 times 4 is16384)
+	add	$a1, $a1, $a2  #add the offset
+        sw 	$a1, 0xffff005c($0)
 
         j       interrupt_dispatch       # see if other interrupts are waiting
 lastTime10:
-	 li $a1, 150
-        sw $a1, 0xffff0050($0)
-        li $a1, 150
-        sw $a1, 0xffff0054($0)
-        li $a1, 150
-        sw $a1, 0xffff0058($0)
-        la $a1, Scan_data
-        sw $a1, 0xffff005c($0)
-
+	lw	$a1, scanlocX($0)
+	beq	$a1, $0, interrupt_dispatch
+	sw	$0, scanlocX($0)
+	 li 	$a1, 150
+        sw 	$a1, 0xffff0050($0)
+        li 	$a1, 150
+        sw 	$a1, 0xffff0054($0)
+        li 	$a1, 300
+        sw 	$a1, 0xffff0058($0)
+	la 	$a1, Scan_data
+	add	$a1, 147456         #9 times 16384 
+        sw 	$a1, 0xffff005c($0)
+	 j       interrupt_dispatch       # see if other interrupts are waiting
 
 timer_interrupt: # Here I want to move on to the next point (or set another timer interrupt to check for more, if I have no tokens but am not done)...
      # sw      $zero, 0xffff0010($zero) # set velocity to 0
