@@ -1,3 +1,10 @@
+ .data
+Scan_data:	.space 16384
+Scan_data2:	.space 16384
+scancontrol:	.byte 0, 0 # the first one is for the scan_data slot and the secont
+	#is for when a coin is picked up
+
+
 .text
 
 # NOTE: This is just my code for Lab9. A lot needs changing.
