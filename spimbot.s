@@ -6,6 +6,7 @@
 # Therefore, for areas of 100x100, circles of radius 100=touching, 142=overlapping
 # tokens have a radius of 2 (but the angle algorithm isn't exact, so we need the buffer)
 # Don't need to stop to pick up a token, but we will to change heading
+# TIME SYSTEM: 100,000=200, 1,000=2, 500=1
 
 #Strategy so far: Scan the map in a specific order, moving from one section to the next until we have covered the entire map.
 
@@ -17,14 +18,14 @@ main:                                  # ENABLE INTERRUPTS
      mtc0   $t4, $12                   # set interrupt mask (Status register)
      
 	#Start a scan here
-	li $t4, 150
-	sw $t4, 0xffff0050($0)
-	li $t4, 150
-	sw $t4, 0xffff0054($0)
-	li $t4, 142
-	sw $t4, 0xffff0058($0)
-	la $t4, scandata
-	sw $t4, 0xffff005c($0)
+#	li $t4, 150
+#	sw $t4, 0xffff0050($0)
+#	li $t4, 150
+#	sw $t4, 0xffff0054($0)
+#	li $t4, 142
+#	sw $t4, 0xffff0058($0)
+#	la $t4, scandata
+#	sw $t4, 0xffff005c($0)
 
 	#below should be code to move the car to the first section (currently there is nothing)
                                        # REQUEST TIMER INTERRUPT
@@ -103,10 +104,11 @@ timer_interrupt: # Here I want to move on to the next point (or set another time
       li      $k0, -90                 # $k0= -90
       sw      $k0, 0xffff0014($zero)   # set angle to $k0
       sw      $zero, 0xffff0018($zero) # relative angle
+
 	
       lw      $k0, 0xffff001c($0)      # current time
       add     $k0, $k0, 100000  
-      sw      $k0, 0xffff001c($0)      # request timer in 10000
+      sw      $k0, 0xffff001c($0)      # request timer in 100000
 
       j       interrupt_dispatch       # see if other interrupts are waiting
 
@@ -344,3 +346,47 @@ compact_loop_maintainance:
 
 compact_done:
   jr   $ra              # return
+
+
+#Function will set bot to drive to the x, y location.
+#$a0=x, $a1=y
+.data
+wordyo:.space 12
+
+drive:
+	sw $t0, 0xffff0020 #x-loc
+	sw $t1, 0xffff0024 #y-loc
+	sub $a0, $a0, $t0 #x-delta
+	sub $a1, $a1, $t1 #y-delta
+	la $t0, wordyo # Save variables I still want (also $ra)
+	sw $a0, 0($t0)
+	sw $a1, 4($t0)
+	sw $ra, 8($t0)
+	jal sb_arctan #find arctan (the angle I want)
+	la $t0, wordyo
+	lw $a0, 0($t0)
+	lw $a1, 4($t0)
+	lw $ra, 8($t0)
+	sw $v0, 0xffff0014($0) # change angle
+	li $t0, 1
+	sw $t0, 0xffff0018
+	abs $a0, $a0 # find distance
+	abs $a1, $a1
+	add $t0, $a0, 0
+	bge $a0, $a1, drive_afterif
+	add $t0, $a1, 0
+drive_afterif:
+	mul $a0, $a0, $a0
+	mul $a1, $a1, $a1
+	add $a0, $a1, $a0
+drive_loop:
+	bge $t0, $a1, drive_end
+	addi $t0, $t0, 3
+drive_end:
+	mul $t0, $t0, 500
+	li $t1, 10
+	sw $t1, 0xffff0010($0) # set velocity to 10
+	lw $t1, 0xffff001c($0)
+	add $t0, $t0, $t1
+	sw $t0, 0xffff001c($0) #set timer to appropriate value
+	jr $ra
