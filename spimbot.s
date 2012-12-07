@@ -564,7 +564,7 @@ compact_continue:
   j    compact_loop_start           # restart loop
   
 compact_finish:
-  and  $v1, $v1, 0x0000FFFF         # mask away bottom 16(y) to $v1
+  and  $v1, $v0, 0x0000FFFF         # mask away bottom 16(y) to $v1
   srl  $v0, $v0, 16                 # shift top 16(x) to $v0
   j    $ra                          # return
   
