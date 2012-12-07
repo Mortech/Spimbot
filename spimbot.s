@@ -1,20 +1,17 @@
  .data
 Scan_data:	.space 163840
+
 tokens:	.space	248 #list structure
 #list=
 #	head *
 #	tail *
-#
-#node=
-#	int x
-#	int y
-#	next *
-#	misc data?
-#
-	#16384 bytes per and 10 parts(9 pluse all) of it so  total 163840
+
+	#16384 bytes per and 10 parts() of it so  total 163840
+
 
 scancontrol:	.word 0 #counter for scanning
 tokenHunt:	.word 0	#counter for collecting
+	
 driveFlag:.word 0 #driving flag
 
 scanlocX: .word 1, 150, 50, 50, 50, 150, 250, 250, 250 # the first one is a flag
@@ -39,10 +36,10 @@ one		= 0x00000001    #the number one
 
 
 	# The arena is 300x300
-	# Therefore, for areas of 100x100, circles of radius 100=touching, 142=overlapping
+	# Therefore, for areas of 100x100, circles of radius 50=touching, 71=overlapping
 	# tokens have a radius of 2 (but the angle algorithm isn't exact, so we need the buffer)
 	# Don't need to stop to pick up a token, but we will to change heading
-	# TIME SYSTEM: 100,000=200, 1,000=2, 500=1
+	# TIME SYSTEM: 100,000=200, 1,000=2, 500=1 at a speed of 10
 
 
 	#Strategy so far: Scan the map in a specific order, moving from one section to the next until we have covered the entire map.
@@ -57,7 +54,7 @@ main:                                  # ENABLE INTERRUPTS
 	#Start a scan here
 	la $t0, tokens
 	sw $0, 0($t0)
-	sw $0, 4($t0)
+	sw $t0, 4($t0)
 	li $t4, 150
 	sw $t4, 0xffff0050($0)
 	li $t4, 150
@@ -74,6 +71,26 @@ main:                                  # ENABLE INTERRUPTS
 	la 	$ra, infinite
 	la 	$t0, drive 
 	jr 	$t0
+	li	$t9, 1
+
+	#scan the first set
+
+	la 	$a0, Scan_data
+	jal 	sort_list
+
+	la	$a0, Scan_data
+	jal	compact
+
+	la	$a0, tokens
+	add	$a0, $a0, 8
+	sw	$v0, 0($a0)
+	sw	$v1, 4($a0)
+	sw	$a0, tokens($0)
+	sw	$0, 8($a0)
+	
+	
+	
+	
 
 infinite: 
      j      infinite
@@ -512,7 +529,7 @@ sl_loop_done:
 	add	$sp, $sp, 12
 	jr	$ra
 	# END sort_list
-<<<<<<< HEAD
+
   
   
 compact:
@@ -522,7 +539,7 @@ compact:
   
 compact_loop_start:
   beq  $a0, $zero, compact_finish   # finish up when list is empty
-  sll  $v0, 1                       # shift the accumulator left
+  sll  $v0, $t9                       # shift the accumulator left
   lw   $a1, 12($a0)                 # get the current node->value
   beq  $a1, $zero, compact_continue # don't set the bit when val == zero
   add  $v0, $v0, 1                  # set the bit otherwise
