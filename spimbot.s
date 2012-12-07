@@ -1,5 +1,16 @@
  .data
 Scan_data:	.space 163840
+tokens:	.space	248 #list structure
+#list=
+#	head *
+#	tail *
+#
+#node=
+#	int x
+#	int y
+#	next *
+#	misc data?
+#
 	#16384 bytes per and 10 parts(9 pluse all) of it so  total 163840
 
 scancontrol:	.word 0 #counter for scanning
@@ -21,6 +32,8 @@ x_loc		= 0xffff0020	# 0 to 300, gives SPIMbot's x coord
 y_loc		= 0xffff0024	# 0 to 300, gives SPIMbot's y coord
 print_int	= 0xffff0080	# Prints an int to the screen
 print_float	= 0xffff0084	# Prints a float to the screen
+
+one		= 0x00000001    #the number one
 	
 	# NOTE: This is just my code for Lab9. A lot needs changing.
 
@@ -42,7 +55,9 @@ main:                                  # ENABLE INTERRUPTS
      mtc0   $t4, $12                   # set interrupt mask (Status register)
 	     
 	#Start a scan here
-
+	la $t0, tokens
+	sw $0, 0($t0)
+	sw $0, 4($t0)
 	li $t4, 150
 	sw $t4, 0xffff0050($0)
 	li $t4, 150
@@ -52,11 +67,13 @@ main:                                  # ENABLE INTERRUPTS
 	la $t4, Scan_data
 	sw $t4, 0xffff005c($0)
 
-	#below should be code to move the car to the first section
-     lw      $k0, 0xffff001c($0)      # current time
-      add     $k0, $k0, 10000  
-      sw      $k0, 0xffff001c($0)      # request timer in 10000
+	#below is code to move the car to the first section
 
+	li     $a0, 150
+	li	$a1, 150
+	la 	$ra, infinite
+	la 	$t0, drive 
+	jr 	$t0
 
 infinite: 
      j      infinite
@@ -158,21 +175,51 @@ lastTime10:
 timer_interrupt: # Here I want to move on to the next point (or set another timer interrupt to check for more, if I have no tokens but am not done)...
       sw      $zero, 0xffff0010($zero) # set velocity to 0
       sw      $a1, 0xffff006c($zero)   # acknowledge interrupt
-      li      $k0, -90                 # $k0= -90
-      sw      $k0, 0xffff0014($zero)   # set angle to $k0
-      sw      $zero, 0xffff0018($zero) # relative angle
-
+	la $t0, tokens
+	lw $a0, 0($t0)
+	beq $a0, $0, after
+	
+	la $t1, driveFlag
+	lw $t0, 0($t1)
+	bgt $t0, 1, after
+	bgt $t0, $0, again
 
       lw      $k0, 0xffff001c($0)      # current time
       add     $k0, $k0, 10000  
       sw      $k0, 0xffff001c($0)      # request timer in 10000
-
-	     li     $a0, 32
-	li	$a1, 201
+start:
+	addi $t0, $0, 1
+	sw $t0, 0($t1)
+	lw $t0, 0($a0)
+	lw $a0, 0($t0)
+	lw $a1, 4($t0)
 	la 	$ra, interrupt_dispatch
 	la 	$t0, drive 
 	jr 	$t0
 	
+again:
+	addi $t0, $t0, 1
+	sw $t0, 0($t1)
+	lw $t0, 0($a0)
+	lw $a0, 0($t0)
+	lw $a1, 4($t0)
+	lw $t1, 8($t0)
+	la $t0, tokens
+	sw $t1, 0($t0)
+	bne $t1, $0, nonnull
+	sw $0, 4($t0)
+nonnull:
+	la 	$ra, interrupt_dispatch
+	la 	$t0, drive 
+	jr 	$t0
+
+after:
+	bne $a0, $0, start
+      lw      $k0, 0xffff001c($0)      # current time
+      add     $k0, $k0, 10000  
+      sw      $k0, 0xffff001c($0)      # request timer in 10000
+	
+
       j       interrupt_dispatch       # see if other interrupts are waiting
 
 non_intrpt:                            # was some non-interrupt
@@ -211,28 +258,28 @@ done:
 	# computes  x - x^3/3 + x^5/5
 	# -----------------------------------------------------------------------
 
-	.data
-	three:	.float	3.0
-	five:	.float	5.0
-	seven:.float	7.0
-	nine:	.float	9.0
-	eleven:.float	11.0
-	thirteen:.float	13.0
-	fifteen:.float	15.0
-	seventeen:.float	17.0
-	nineteen:.float	19.0
-	twoone:.float	21.0
-	twothree:.float	23.0
-	twofive:.float	25.0
-	twoseven:.float	27.0
-	twonine:.float	29.0
-	theone:.float	31.0
-	thethree:.float	33.0
-	PI:	.float	3.14159
-	F180:	.float  180.0
+.data
+three:	.float	3.0
+five:	.float	5.0
+seven:.float	7.0
+nine:	.float	9.0
+eleven:.float	11.0
+thirteen:.float	13.0
+fifteen:.float	15.0
+seventeen:.float	17.0
+nineteen:.float	19.0
+twoone:.float	21.0
+twothree:.float	23.0
+twofive:.float	25.0
+twoseven:.float	27.0
+twonine:.float	29.0
+theone:.float	31.0
+thethree:.float	33.0
+PI:	.float	3.14159
+F180:	.float  180.0
 	
 	.text
-	sb_arctan:
+sb_arctan:
 	li	$v0, 0		# angle = 0;
 
 	abs	$t0, $a0	# get absolute values
@@ -245,7 +292,7 @@ done:
 	move	$a0, $t0	# x = temp;    
 	li	$v0, 90		# angle = 90;  
 
-	no_TURN_90:
+no_TURN_90:
 	bge	$a0, $zero, pos_x 	# skip if (x >= 0)
 
 	## if (x < 0) 
@@ -396,12 +443,12 @@ remove_element:
 	lw	$t1, 4($a1)  	        # t1 = mylist->tail
 	bne	$t0, $t1, re_not_empty_list
 
-	re_empty_list:
+re_empty_list:
 	sw	$zero, 0($a1)		# zero out the head ptr
 	sw	$zero, 4($a1)		# zero out the tail ptr
 	j	re_done
 
-	re_not_empty_list:
+re_not_empty_list:
 	lw	$t2, 4($a0)		# t2 = node->prev
 	lw	$t3, 8($a0)		# t3 = node->next
 	bne	$t2, $zero, re_not_first# if (node->prev == NULL) {
@@ -410,43 +457,43 @@ remove_element:
 	sw	$zero, 4($t3)		# node->next->prev = NULL;
 	j	re_done
 
-	re_not_first: 
+re_not_first: 
 	bne	$t3, $zero, re_not_last# if (node->next == NULL) {
 	sw	$t2, 4($a1)		# mylist->tail = node->prev;
 	sw	$zero, 8($t2)		# node->prev->next = NULL;
 	j	re_done
-	re_not_last:
+re_not_last:
 	sw	$t3, 8($t2)		# node->prev->next = node->next;
 	sw	$t2, 4($t3)		# node->next->prev = node->prev;
 
-	re_done:
+re_done:
 	sw	$zero, 4($a0)		# zero out $a0's prev
 	sw	$zero, 8($a0)		# zero out $a0's next
 	jr	$ra			# return
 	# END remove_element
 	
-	sort_list:  # $a0 = mylist
+sort_list:  # $a0 = mylist
 	lw	$t0, 0($a0)  	        # t0 = mylist->head, smallest
 	lw	$t1, 4($a0)  	        # t1 = mylist->tail
 	bne	$t0, $t1, sl_2_or_more	# if (mylist->head == mylist->tail) {
 	jr	$ra  	  		#    return;
 
-	sl_2_or_more:
+sl_2_or_more:
 	sub	$sp, $sp, 12
 	sw	$ra, 0($sp)		# save $ra
 	sw	$a0, 4($sp)		# save my_list
 	lw	$t1, 8($t0)  	        # t1 = trav = smallest->next
-	sl_loop:
+sl_loop:
 	beq	$t1, $zero, sl_loop_done # trav != NULL
 	lw	$t3, 0($t1) 		# trav->data
 	lw	$t2, 0($t0) 		# smallest->data
 	bge	$t3, $t2, sl_skip	# inverse of: if (trav->data < smallest->data) { 
 	move	$t0, $t1		# smallest = trav;
-	sl_skip:
+sl_skip:
 	lw	$t1, 8($t1)		# trav = trav->next
 	j	sl_loop
 	
-	sl_loop_done:
+sl_loop_done:
 	sw	$t0, 8($sp)		# save smallest
 
 	move	$a1, $a0		# my_list is arg2
@@ -465,6 +512,7 @@ remove_element:
 	add	$sp, $sp, 12
 	jr	$ra
 	# END sort_list
+<<<<<<< HEAD
   
   
 compact:
@@ -489,7 +537,6 @@ compact_finish:
   j    $ra                          # return
   
 
-
 #Function will set bot to drive to the x, y location.
 #$a0=x, $a1=y
 drive:
@@ -497,8 +544,6 @@ drive:
 	lw $t1, 0xffff0024($0) #y-loc
 	sub $a0, $a0, $t0 #x-delta
 	sub $a1, $a1, $t1 #y-delta
-	sw $a0, 0xffff0080($0) ##
-	sw $a1, 0xffff0080($0) ##
 	la $t0, wordyo # Save variables I still want (also $ra)
 	sw $a0, 0($t0)
 	sw $a1, 4($t0)
@@ -510,7 +555,6 @@ drive:
 	lw $a1, 4($t0)
 	lw $ra, 8($t0)
 	sw $v0, 0xffff0014($0) # change angle
-	sw $v0, 0xffff0080($0) ##
 	li $t0, 1
 	sw $t0, 0xffff0018($0)
 	abs $a0, $a0 # find distance
@@ -528,7 +572,6 @@ drive_loop:
 	addi $t0, $t0, 3
 	j drive_loop
 drive_end:
-	sw $t0, 0xffff0080($0) ##
 	mul $t0, $t0, 500
 	li $t1, 10
 	sw $t1, 0xffff0010($0) # set velocity to 10
@@ -536,3 +579,4 @@ drive_end:
 	add $t0, $t0, $t1
 	sw $t0, 0xffff001c($0) #set timer to appropriate value
 	jr $ra
+compact_done:
