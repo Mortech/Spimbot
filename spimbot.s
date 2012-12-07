@@ -512,7 +512,6 @@ sl_loop_done:
 	add	$sp, $sp, 12
 	jr	$ra
 	# END sort_list
-<<<<<<< HEAD
   
   
 compact:
@@ -522,7 +521,7 @@ compact:
   
 compact_loop_start:
   beq  $a0, $zero, compact_finish   # finish up when list is empty
-  sll  $v0, 1                       # shift the accumulator left
+  sll  $v0, $v0, 1                  # shift the accumulator left
   lw   $a1, 12($a0)                 # get the current node->value
   beq  $a1, $zero, compact_continue # don't set the bit when val == zero
   add  $v0, $v0, 1                  # set the bit otherwise
