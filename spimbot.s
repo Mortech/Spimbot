@@ -53,10 +53,10 @@ main:                                  # ENABLE INTERRUPTS
 	sw $t4, 0xffff005c($0)
 
 	#below should be code to move the car to the first section
+     lw      $k0, 0xffff001c($0)      # current time
+      add     $k0, $k0, 10000  
+      sw      $k0, 0xffff001c($0)      # request timer in 10000
 
-     li     $a0, 32
-	li $a1, 201
-     jal drive
 
 infinite: 
      j      infinite
@@ -101,16 +101,16 @@ interrupt_dispatch:                    # Interrupt:
       and     $a0, $k0, 0x8000         # is there a timer interrupt?
       bne     $a0, 0, timer_interrupt
 
-and     $a0, $k0, 0x2000         # is there a scan interrupt?
+	and     $a0, $k0, 0x2000         # is there a scan interrupt?
       bne     $a0, 0, scan_interrupt
 
                          # add dispatch for other interrupt types here.
-add $k0, $v0, $zero
+	add $k0, $v0, $zero
       li      $v0, 4                   # Unhandled interrupt types
 
       la      $a0, unhandled_str
       syscall 
-add $v0, $k0, $zero
+	add $v0, $k0, $zero
       j       done
 
 bonk_interrupt: #bonk shouldn't ever happen, do not need to worry about it...
@@ -167,6 +167,12 @@ timer_interrupt: # Here I want to move on to the next point (or set another time
       add     $k0, $k0, 10000  
       sw      $k0, 0xffff001c($0)      # request timer in 10000
 
+	     li     $a0, 32
+	li	$a1, 201
+	la 	$ra, interrupt_dispatch
+	la 	$t0, drive 
+	jr 	$t0
+	
       j       interrupt_dispatch       # see if other interrupts are waiting
 
 non_intrpt:                            # was some non-interrupt
@@ -348,7 +354,7 @@ done:
 
 	# copy your "insert_element_after" and "remove_element" functions here
 
-	insert_element_after:	
+insert_element_after:	
 	# inserts the new element $a0 after $a1
 	# if $a1 is 0, then we insert at the front of the list
 
@@ -359,7 +365,7 @@ done:
 	beqz	$t0, iea_after_head	# if ( mylist->head != NULL ) {
 	sw	$a0, 4($t0)		#   mylist->head->prev = node;
 		     			# }
-	iea_after_head:	
+iea_after_head:	
 	sw	$a0, 0($a2)		# mylist->head = node;
 	lw	$t0, 4($a2)		# $t0 = mylist->tail
 	bnez	$t0, iea_done		# if ( mylist->tail == NULL ) {
@@ -367,23 +373,23 @@ done:
 	iea_done:	     			# }
 	jr	$ra
 
-	iea_not_head:
+iea_not_head:
 	lw	$t1, 8($a1)		# $t1 = prev->next
 	bne	$t1, $zero, iea_not_tail# if ( prev->next == NULL ) {
 	sw	$a0, 4($a2)		#   mylist->tail = node;
 	b	iea_end			# }
-	iea_not_tail:				# else {
+iea_not_tail:				# else {
 	sw	$t1, 8($a0)		#   node->next = prev->next;
 	sw	$a0, 4($t1)		#   node->next->prev = node;
 		     			# }
 
-	iea_end:	
+iea_end:	
 	sw	$a0, 8($a1)		# store the new pointer as the next of $a1
 	sw	$a1, 4($a0)		# store the old pointer as prev of $a0
 	jr	$ra			# return
 	# END insert_element_after
 
-	remove_element:
+remove_element:
 	# removes the element at $a0 (list is in $a1)
 	# if this element is the whole list, we have to empty the list
 	lw	$t0, 0($a1)  	        # t0 = mylist->head
@@ -512,6 +518,7 @@ drive:
 	sw $a1, 4($t0)
 	sw $ra, 8($t0)
 	jal sb_arctan #find arctan (the angle I want)
+
 	la $t0, wordyo
 	lw $a0, 0($t0)
 	lw $a1, 4($t0)
