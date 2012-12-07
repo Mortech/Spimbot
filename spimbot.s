@@ -465,43 +465,29 @@ remove_element:
 	add	$sp, $sp, 12
 	jr	$ra
 	# END sort_list
-
-
-
+  
+  
 compact:
-# $a0 = base_address(bool), $a1 = length, $a2 = base_address(word[])
-
-  li   $t0, 0           # $t0 = boolIndex, initialized to 0 
-  li   $t1, 0x80000000  # $t1 = mask, initialized to 1 << 31 
-
-compact_loop:
-  bge  $t0, $a1, compact_done
-
-  lw   $t2, 0($a0)      # $t2 = bool[boolIndex]
-  lw   $t3, 0($a2)      # $t3 = word[wordIndex]
-  beq  $t2, $zero, compact_else_case
-  or   $t3, $t3, $t1    # t3 |= mask
-  j    compact_endif
-
-compact_else_case:
-  not  $t4, $t1         # can re-use $t2 instead of using $t4
-  and  $t3, $t3, $t4    # t3 &= ~mask
-
-compact_endif:
-  sw   $t3, 0($a2)      # word[wordIndex] = t3
-  srl  $t1, $t1, 1      # mask = mask >> 1
-
-  bne  $t1, $zero, compact_loop_maintainance
-  addi $a2, $a2, 4      # advance word array pointer
-  li   $t1, 0x80000000  # reset mask
-
-compact_loop_maintainance:
-  addi $t0, $t0, 1      # increment boolIndex
-  addi $a0, $a0, 4      # advance bool array pointer
-  j    compact_loop
-
-compact_done:
-  jr   $ra              # return
+# $a0 = trav, $a1 = trav->value, $v0 = accumulator / x-return, $v1 = y-return
+  li   $v0, 0                       # initialize accumulator
+  lw   $a0, 0($a0)                  # load head to $a0
+  
+compact_loop_start:
+  beq  $a0, $zero, compact_finish   # finish up when list is empty
+  sll  $v0, 1                       # shift the accumulator left
+  lw   $a1, 12($a0)                 # get the current node->value
+  beq  $a1, $zero, compact_continue # don't set the bit when val == zero
+  add  $v0, $v0, 1                  # set the bit otherwise
+  
+compact_continue:
+  lw   $a0, 8($a0)                  # trav = trav->next
+  j    compact_loop_start           # restart loop
+  
+compact_finish:
+  and  $v1, $v1, 0x0000FFFF         # mask away bottom 16(y) to $v1
+  srl  $v0, $v0, 16                 # shift top 16(x) to $v0
+  j    $ra                          # return
+  
 
 
 #Function will set bot to drive to the x, y location.
