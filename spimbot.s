@@ -1,5 +1,16 @@
  .data
 Scan_data:	.space 163840
+tokens:	.space	248 #list structure
+#list=
+#	head *
+#	tail *
+#
+#node=
+#	int x
+#	int y
+#	next *
+#	misc data?
+#
 	#16384 bytes per and 10 parts(9 pluse all) of it so  total 163840
 
 scancontrol:	.word 0 #counter for scanning
@@ -44,7 +55,9 @@ main:                                  # ENABLE INTERRUPTS
      mtc0   $t4, $12                   # set interrupt mask (Status register)
 	     
 	#Start a scan here
-
+	la $t0, tokens
+	sw $0, 0($t0)
+	sw $0, 4($t0)
 	li $t4, 150
 	sw $t4, 0xffff0050($0)
 	li $t4, 150
@@ -162,33 +175,46 @@ lastTime10:
 timer_interrupt: # Here I want to move on to the next point (or set another timer interrupt to check for more, if I have no tokens but am not done)...
       sw      $zero, 0xffff0010($zero) # set velocity to 0
       sw      $a1, 0xffff006c($zero)   # acknowledge interrupt
-
-	la $t0, driveFlag
-	lw $t0, 0($t0)
+	la $t0, tokens
+	lw $a0, 0($t0)
+	beq $a0, $0, after
+	
+	la $t1, driveFlag
+	lw $t0, 0($t1)
 	bgt $t0, 1, after
 	bgt $t0, $0, again
 
       lw      $k0, 0xffff001c($0)      # current time
       add     $k0, $k0, 10000  
       sw      $k0, 0xffff001c($0)      # request timer in 10000
-	
-
-	li     $a0, 32
-	li	$a1, 201
+start:
+	addi $t0, $0, 1
+	sw $t0, 0($t1)
+	lw $t0, 0($a0)
+	lw $a0, 0($t0)
+	lw $a1, 4($t0)
 	la 	$ra, interrupt_dispatch
 	la 	$t0, drive 
 	jr 	$t0
 	
 again:
-	
-	li     $a0, 32
-	li	$a1, 201
+	addi $t0, $t0, 1
+	sw $t0, 0($t1)
+	lw $t0, 0($a0)
+	lw $a0, 0($t0)
+	lw $a1, 4($t0)
+	lw $t1, 8($t0)
+	la $t0, tokens
+	sw $t1, 0($t0)
+	bne $t1, $0, nonnull
+	sw $0, 4($t0)
+nonnull:
 	la 	$ra, interrupt_dispatch
 	la 	$t0, drive 
 	jr 	$t0
 
 after:
-	
+	bne $a0, $0, start
       lw      $k0, 0xffff001c($0)      # current time
       add     $k0, $k0, 10000  
       sw      $k0, 0xffff001c($0)      # request timer in 10000
@@ -532,8 +558,6 @@ drive:
 	lw $t1, 0xffff0024($0) #y-loc
 	sub $a0, $a0, $t0 #x-delta
 	sub $a1, $a1, $t1 #y-delta
-	sw $a0, 0xffff0080($0) ##
-	sw $a1, 0xffff0080($0) ##
 	la $t0, wordyo # Save variables I still want (also $ra)
 	sw $a0, 0($t0)
 	sw $a1, 4($t0)
@@ -545,7 +569,6 @@ drive:
 	lw $a1, 4($t0)
 	lw $ra, 8($t0)
 	sw $v0, 0xffff0014($0) # change angle
-	sw $v0, 0xffff0080($0) ##
 	li $t0, 1
 	sw $t0, 0xffff0018($0)
 	abs $a0, $a0 # find distance
@@ -563,7 +586,6 @@ drive_loop:
 	addi $t0, $t0, 3
 	j drive_loop
 drive_end:
-	sw $t0, 0xffff0080($0) ##
 	mul $t0, $t0, 500
 	li $t1, 10
 	sw $t1, 0xffff0010($0) # set velocity to 10
