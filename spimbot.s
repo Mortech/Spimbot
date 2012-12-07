@@ -21,6 +21,8 @@ x_loc		= 0xffff0020	# 0 to 300, gives SPIMbot's x coord
 y_loc		= 0xffff0024	# 0 to 300, gives SPIMbot's y coord
 print_int	= 0xffff0080	# Prints an int to the screen
 print_float	= 0xffff0084	# Prints a float to the screen
+
+one		= 0x00000001    #the number one
 	
 	# NOTE: This is just my code for Lab9. A lot needs changing.
 
@@ -211,28 +213,28 @@ done:
 	# computes  x - x^3/3 + x^5/5
 	# -----------------------------------------------------------------------
 
-	.data
-	three:	.float	3.0
-	five:	.float	5.0
-	seven:.float	7.0
-	nine:	.float	9.0
-	eleven:.float	11.0
-	thirteen:.float	13.0
-	fifteen:.float	15.0
-	seventeen:.float	17.0
-	nineteen:.float	19.0
-	twoone:.float	21.0
-	twothree:.float	23.0
-	twofive:.float	25.0
-	twoseven:.float	27.0
-	twonine:.float	29.0
-	theone:.float	31.0
-	thethree:.float	33.0
-	PI:	.float	3.14159
-	F180:	.float  180.0
+.data
+three:	.float	3.0
+five:	.float	5.0
+seven:.float	7.0
+nine:	.float	9.0
+eleven:.float	11.0
+thirteen:.float	13.0
+fifteen:.float	15.0
+seventeen:.float	17.0
+nineteen:.float	19.0
+twoone:.float	21.0
+twothree:.float	23.0
+twofive:.float	25.0
+twoseven:.float	27.0
+twonine:.float	29.0
+theone:.float	31.0
+thethree:.float	33.0
+PI:	.float	3.14159
+F180:	.float  180.0
 	
 	.text
-	sb_arctan:
+sb_arctan:
 	li	$v0, 0		# angle = 0;
 
 	abs	$t0, $a0	# get absolute values
@@ -245,7 +247,7 @@ done:
 	move	$a0, $t0	# x = temp;    
 	li	$v0, 90		# angle = 90;  
 
-	no_TURN_90:
+no_TURN_90:
 	bge	$a0, $zero, pos_x 	# skip if (x >= 0)
 
 	## if (x < 0) 
@@ -396,12 +398,12 @@ remove_element:
 	lw	$t1, 4($a1)  	        # t1 = mylist->tail
 	bne	$t0, $t1, re_not_empty_list
 
-	re_empty_list:
+re_empty_list:
 	sw	$zero, 0($a1)		# zero out the head ptr
 	sw	$zero, 4($a1)		# zero out the tail ptr
 	j	re_done
 
-	re_not_empty_list:
+re_not_empty_list:
 	lw	$t2, 4($a0)		# t2 = node->prev
 	lw	$t3, 8($a0)		# t3 = node->next
 	bne	$t2, $zero, re_not_first# if (node->prev == NULL) {
@@ -410,43 +412,43 @@ remove_element:
 	sw	$zero, 4($t3)		# node->next->prev = NULL;
 	j	re_done
 
-	re_not_first: 
+re_not_first: 
 	bne	$t3, $zero, re_not_last# if (node->next == NULL) {
 	sw	$t2, 4($a1)		# mylist->tail = node->prev;
 	sw	$zero, 8($t2)		# node->prev->next = NULL;
 	j	re_done
-	re_not_last:
+re_not_last:
 	sw	$t3, 8($t2)		# node->prev->next = node->next;
 	sw	$t2, 4($t3)		# node->next->prev = node->prev;
 
-	re_done:
+re_done:
 	sw	$zero, 4($a0)		# zero out $a0's prev
 	sw	$zero, 8($a0)		# zero out $a0's next
 	jr	$ra			# return
 	# END remove_element
 	
-	sort_list:  # $a0 = mylist
+sort_list:  # $a0 = mylist
 	lw	$t0, 0($a0)  	        # t0 = mylist->head, smallest
 	lw	$t1, 4($a0)  	        # t1 = mylist->tail
 	bne	$t0, $t1, sl_2_or_more	# if (mylist->head == mylist->tail) {
 	jr	$ra  	  		#    return;
 
-	sl_2_or_more:
+sl_2_or_more:
 	sub	$sp, $sp, 12
 	sw	$ra, 0($sp)		# save $ra
 	sw	$a0, 4($sp)		# save my_list
 	lw	$t1, 8($t0)  	        # t1 = trav = smallest->next
-	sl_loop:
+sl_loop:
 	beq	$t1, $zero, sl_loop_done # trav != NULL
 	lw	$t3, 0($t1) 		# trav->data
 	lw	$t2, 0($t0) 		# smallest->data
 	bge	$t3, $t2, sl_skip	# inverse of: if (trav->data < smallest->data) { 
 	move	$t0, $t1		# smallest = trav;
-	sl_skip:
+sl_skip:
 	lw	$t1, 8($t1)		# trav = trav->next
 	j	sl_loop
 	
-	sl_loop_done:
+sl_loop_done:
 	sw	$t0, 8($sp)		# save smallest
 
 	move	$a1, $a0		# my_list is arg2
