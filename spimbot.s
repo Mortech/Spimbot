@@ -206,9 +206,6 @@ again:
 	lw $t1, 8($t0)
 	la $t0, tokens
 	sw $t1, 0($t0)
-	bne $t1, $0, nonnull
-	sw $0, 4($t0)
-nonnull:
 	la 	$ra, interrupt_dispatch
 	la 	$t0, drive 
 	jr 	$t0
