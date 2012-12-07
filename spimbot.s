@@ -78,6 +78,9 @@ gettoken:
 	#scan the first set
 
 	la 	$a0, Scan_data
+	lw $t0, 0($a0)
+	sw $t0, 0xffff0080($0) ##
+	beq $t0, $0, infinite
 	jal 	sort_list
 
 	la	$a0, Scan_data
@@ -85,13 +88,15 @@ gettoken:
 
 	la	$a0, tokens 
 	add	$a0, $a0, 8 
+	sw $v0, 0xffff0080($0) ##
+	sw $v1, 0xffff0080($0) ##
 	sw	$v0, 0($a0)
 	sw	$v1, 4($a0)
 	sw	$a0, tokens($0)
 	sw	$0, 8($a0)
 	
 infinite:
-	la $t8  tempflag($0)
+	lw $t8,  tempflag($0)
 	beq $t8, $0, gettoken 
 	
  j      infinite	
@@ -211,9 +216,12 @@ timer_interrupt: # Here I want to move on to the next point (or set another time
 start:
 	addi $t0, $0, 1
 	sw $t0, 0($t1)
-	lw $t0, 0($a0)
-	lw $a0, 0($t0)
-	lw $a1, 4($t0)
+	lw $a1, 4($a0)
+	lw $a0, 0($a0)
+	sw $t1, 0xffff0080($0) ##
+	sw $a0, 0xffff0080($0) ##
+	sw $a1, 0xffff0080($0) ##
+	sw $t1, 0xffff0080($0) ##
 	la 	$ra, interrupt_dispatch
 	la 	$t0, drive 
 	jr 	$t0
@@ -221,13 +229,17 @@ start:
 again:
 	addi $t0, $t0, 1
 	sw $t0, 0($t1)
-	lw $t0, 0($a0)
-	lw $a0, 0($t0)
-	lw $a1, 4($t0)
-	lw $t1, 8($t0)
+	lw $a1, 4($a0)
+	lw $t1, 8($a0)
 	la $t0, tokens
 	sw $t1, 0($t0)
+	lw $a0, 0($a0)
 	la 	$ra, interrupt_dispatch
+	li $t1, 1
+	sw $t1, 0xffff0080($0) ##
+	sw $a0, 0xffff0080($0) ##
+	sw $a1, 0xffff0080($0) ##
+	sw $t1, 0xffff0080($0) ##
 	la 	$t0, drive 
 	jr 	$t0
 
