@@ -14,12 +14,19 @@
   $s6: the tail of the token list 
 
   more to come use on code you need to run alot.
- */
 
-struct tokenlist {
+
+	MAKE SURE that new nodes added to the list have their next point to 0!
+ */
+struct tokenlist{
+  token * head;
+  token * tail;
+};
+
+struct token {
   int x; //0
   int y; //4
-  int next; //12
+  token * next; //12
   int zone; //16
 };
 
