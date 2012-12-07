@@ -54,11 +54,13 @@ main:                                  # ENABLE INTERRUPTS
 	la $t4, Scan_data
 	sw $t4, 0xffff005c($0)
 
-	#below should be code to move the car to the first section
-     lw      $k0, 0xffff001c($0)      # current time
-      add     $k0, $k0, 10000  
-      sw      $k0, 0xffff001c($0)      # request timer in 10000
+	#below is code to move the car to the first section
 
+	li     $a0, 150
+	li	$a1, 150
+	la 	$ra, infinite
+	la 	$t0, drive 
+	jr 	$t0
 
 infinite: 
      j      infinite
@@ -160,21 +162,38 @@ lastTime10:
 timer_interrupt: # Here I want to move on to the next point (or set another timer interrupt to check for more, if I have no tokens but am not done)...
       sw      $zero, 0xffff0010($zero) # set velocity to 0
       sw      $a1, 0xffff006c($zero)   # acknowledge interrupt
-      li      $k0, -90                 # $k0= -90
-      sw      $k0, 0xffff0014($zero)   # set angle to $k0
-      sw      $zero, 0xffff0018($zero) # relative angle
 
+	la $t0, driveFlag
+	lw $t0, 0($t0)
+	bgt $t0, 1, after
+	bgt $t0, $0, again
 
       lw      $k0, 0xffff001c($0)      # current time
       add     $k0, $k0, 10000  
       sw      $k0, 0xffff001c($0)      # request timer in 10000
+	
 
-	     li     $a0, 32
+	li     $a0, 32
 	li	$a1, 201
 	la 	$ra, interrupt_dispatch
 	la 	$t0, drive 
 	jr 	$t0
 	
+again:
+	
+	li     $a0, 32
+	li	$a1, 201
+	la 	$ra, interrupt_dispatch
+	la 	$t0, drive 
+	jr 	$t0
+
+after:
+	
+      lw      $k0, 0xffff001c($0)      # current time
+      add     $k0, $k0, 10000  
+      sw      $k0, 0xffff001c($0)      # request timer in 10000
+	
+
       j       interrupt_dispatch       # see if other interrupts are waiting
 
 non_intrpt:                            # was some non-interrupt
