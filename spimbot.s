@@ -13,7 +13,8 @@ scancontrol:	.word 0 #counter for scanning
 tokenHunt:	.word 0	#counter for collecting
 	
 driveFlag:.word 0 #driving flag
-
+tempflag:	.word 1		
+	
 scanlocX: .word 1, 150, 50, 50, 50, 150, 250, 250, 250 # the first one is a flag
 scanlocY: .word 0, 250, 250, 150, 50, 50, 50, 150, 250	
 wordyo:.space 12
@@ -72,7 +73,8 @@ main:                                  # ENABLE INTERRUPTS
 	la 	$t0, drive 
 	jr 	$t0
 	li	$t9, 1
-
+gettoken:
+	sw $t9 tempflag($0)
 	#scan the first set
 
 	la 	$a0, Scan_data
@@ -81,19 +83,21 @@ main:                                  # ENABLE INTERRUPTS
 	la	$a0, Scan_data
 	jal	compact
 
-	la	$a0, tokens
-	add	$a0, $a0, 8
+	la	$a0, tokens 
+	add	$a0, $a0, 8 
 	sw	$v0, 0($a0)
 	sw	$v1, 4($a0)
 	sw	$a0, tokens($0)
 	sw	$0, 8($a0)
 	
+infinite:
+	la $t8  tempflag($0)
+	beq $t8, $0, gettoken 
 	
-	
-	
+ j      infinite	
 
-infinite: 
-     j      infinite
+
+   
      nop
 
 
@@ -154,7 +158,7 @@ bonk_interrupt: #bonk shouldn't ever happen, do not need to worry about it...
       j       interrupt_dispatch       # see if other interrupts are waiting
 
 scan_interrupt: #Here I want to call a fresh scan and save my first for prossesing
-     # sw      $zero, 0xffff0010($zero) # set velocity to 0
+     # sw      $zero, 0xffff0010($zero) # set velocity to 
         sw      $a1, 0xffff0064($zero)   # acknowledge interrupt
         lw  	$a2, scancontrol($0) #a2 is the scan number
         li      $a0 8 #the 8th time will stor the 9th value
@@ -172,7 +176,7 @@ scan_interrupt: #Here I want to call a fresh scan and save my first for prossesi
 	mul	$a2, $a2, 4096 #(calulate the offset 4098 times 4 is16384)
 	add	$a1, $a1, $a2  #add the offset
         sw 	$a1, 0xffff005c($0)
-
+	sw	$0, tempflag($0)
         j       interrupt_dispatch       # see if other interrupts are waiting
 lastTime10:
 	lw	$a1, scanlocX($0)
@@ -223,9 +227,6 @@ again:
 	lw $t1, 8($t0)
 	la $t0, tokens
 	sw $t1, 0($t0)
-	bne $t1, $0, nonnull
-	sw $0, 4($t0)
-nonnull:
 	la 	$ra, interrupt_dispatch
 	la 	$t0, drive 
 	jr 	$t0
@@ -539,7 +540,9 @@ compact:
   
 compact_loop_start:
   beq  $a0, $zero, compact_finish   # finish up when list is empty
-  sll  $v0, $t9                       # shift the accumulator left
+
+  sll  $v0, $v0, 1                  # shift the accumulator left
+
   lw   $a1, 12($a0)                 # get the current node->value
   beq  $a1, $zero, compact_continue # don't set the bit when val == zero
   add  $v0, $v0, 1                  # set the bit otherwise
