@@ -19,8 +19,8 @@
 	MAKE SURE that new nodes added to the list have their next point to 0!
  */
 struct tokenlist{
-  token * head;
-  token * tail;
+  token * head; //head points to the first valid token
+  token * tail; //tail can be whatever (starts null)
 };
 
 struct token {
