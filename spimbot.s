@@ -398,54 +398,9 @@ no_TURN_90:
 	add.s	$f6, $f6, $f3	# value + v^^13/13
 
 	mul.s	$f2, $f1, $f2	# v^^13
-	l.s	$f3, fifteen($zero)	# load 13.0
-	div.s 	$f3, $f2, $f3	# v^^13/13
-	sub.s	$f6, $f6, $f3	# value + v^^13/13
-
-	mul.s	$f2, $f1, $f2	# v^^13
-	l.s	$f3, seventeen($zero)	# load 13.0
-	div.s 	$f3, $f2, $f3	# v^^13/13
-	add.s	$f6, $f6, $f3	# value + v^^13/13
-
-	mul.s	$f2, $f1, $f2	# v^^13
-	l.s	$f3, nineteen($zero)	# load 13.0
-	div.s 	$f3, $f2, $f3	# v^^13/13
-	sub.s	$f6, $f6, $f3	# value + v^^13/13
-
-	mul.s	$f2, $f1, $f2	# v^^13
-	l.s	$f3, twoone($zero)	# load 13.0
-	div.s 	$f3, $f2, $f3	# v^^13/13
-	add.s	$f6, $f6, $f3	# value + v^^13/13
-
-	mul.s	$f2, $f1, $f2	# v^^13
-	l.s	$f3, twothree($zero)	# load 13.0
-	div.s 	$f3, $f2, $f3	# v^^13/13
-	sub.s	$f6, $f6, $f3	# value + v^^13/13
-
-	mul.s	$f2, $f1, $f2	# v^^13
-	l.s	$f3, twofive($zero)	# load 13.0
-	div.s 	$f3, $f2, $f3	# v^^13/13
-	add.s	$f6, $f6, $f3	# value + v^^13/13
-
-	mul.s	$f2, $f1, $f2	# v^^13
-	l.s	$f3, twoseven($zero)	# load 13.0
-	div.s 	$f3, $f2, $f3	# v^^13/13
-	sub.s	$f6, $f6, $f3	# value + v^^13/13
-
-	mul.s	$f2, $f1, $f2	# v^^13
-	l.s	$f3, twonine($zero)	# load 13.0
-	div.s 	$f3, $f2, $f3	# v^^13/13
-	add.s	$f6, $f6, $f3	# value + v^^13/13
-
-	mul.s	$f2, $f1, $f2	# v^^13
-	l.s	$f3, theone($zero)	# load 13.0
-	div.s 	$f3, $f2, $f3	# v^^13/13
-	sub.s	$f6, $f6, $f3	# value + v^^13/13
-
-	mul.s	$f2, $f1, $f2	# v^^13
-	l.s	$f3, thethree($zero)	# load 13.0
-	div.s 	$f3, $f2, $f3	# v^^13/13
-	add.s	$f6, $f6, $f3	# value + v^^13/13
+	l.s	$f3, fifteen($zero)	# load 15.0
+	div.s 	$f3, $f2, $f3	# v^^15/15
+	sub.s	$f6, $f6, $f3	# value + v^^15/15
 
 	l.s	$f8, PI($zero)		# load PI
 	div.s	$f6, $f6, $f8	# value / PI
