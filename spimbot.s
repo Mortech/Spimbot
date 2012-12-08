@@ -454,43 +454,124 @@ no_TURN_90:
 	mfc1	$t0, $f6
 	add	$v0, $v0, $t0	# angle += delta
 
-	jr 	$ra	
+	jr 	$ra
+	
 
+	# copy your "insert_element_after" and "remove_element" functions here
+
+insert_element_after:	
+	# inserts the new element $a0 after $a1
+	# if $a1 is 0, then we insert at the front of the list
+
+	bne	$a1, $zero, iea_not_head # if a1 is null, we have to assign the head and tail
+
+	lw	$t0, 0($a2) 		# $t0 = mylist->head
+	sw	$t0, 8($a0)		# node->next = mylist->head;
+	beqz	$t0, iea_after_head	# if ( mylist->head != NULL ) {
+	sw	$a0, 4($t0)		#   mylist->head->prev = node;
+		     			# }
+iea_after_head:	
+	sw	$a0, 0($a2)		# mylist->head = node;
+	lw	$t0, 4($a2)		# $t0 = mylist->tail
+	bnez	$t0, iea_done		# if ( mylist->tail == NULL ) {
+	sw	$a0, 4($a2)		#   mylist->tail = node;
+	iea_done:	     			# }
+	jr	$ra
+
+iea_not_head:
+	lw	$t1, 8($a1)		# $t1 = prev->next
+	bne	$t1, $zero, iea_not_tail# if ( prev->next == NULL ) {
+	sw	$a0, 4($a2)		#   mylist->tail = node;
+	b	iea_end			# }
+iea_not_tail:				# else {
+	sw	$t1, 8($a0)		#   node->next = prev->next;
+	sw	$a0, 4($t1)		#   node->next->prev = node;
+		     			# }
+
+iea_end:	
+	sw	$a0, 8($a1)		# store the new pointer as the next of $a1
+	sw	$a1, 4($a0)		# store the old pointer as prev of $a0
+	jr	$ra			# return
+	# END insert_element_after
+
+remove_element:
+	# removes the element at $a0 (list is in $a1)
+	# if this element is the whole list, we have to empty the list
+	lw	$t0, 0($a1)  	        # t0 = mylist->head
+	lw	$t1, 4($a1)  	        # t1 = mylist->tail
+	bne	$t0, $t1, re_not_empty_list
+
+re_empty_list:
+	sw	$zero, 0($a1)		# zero out the head ptr
+	sw	$zero, 4($a1)		# zero out the tail ptr
+	j	re_done
+
+re_not_empty_list:
+	lw	$t2, 4($a0)		# t2 = node->prev
+	lw	$t3, 8($a0)		# t3 = node->next
+	bne	$t2, $zero, re_not_first# if (node->prev == NULL) {
+
+	sw	$t3, 0($a1)		# mylist->head = node->next;
+	sw	$zero, 4($t3)		# node->next->prev = NULL;
+	j	re_done
+
+re_not_first: 
+	bne	$t3, $zero, re_not_last# if (node->next == NULL) {
+	sw	$t2, 4($a1)		# mylist->tail = node->prev;
+	sw	$zero, 8($t2)		# node->prev->next = NULL;
+	j	re_done
+re_not_last:
+	sw	$t3, 8($t2)		# node->prev->next = node->next;
+	sw	$t2, 4($t3)		# node->next->prev = node->prev;
+
+re_done:
+	sw	$zero, 4($a0)		# zero out $a0's prev
+	sw	$zero, 8($a0)		# zero out $a0's next
+	jr	$ra			# return
+	# END remove_element
 	
-sort_list:
-	li	$a1, 31
+sort_list:  # $a0 = mylist
+	lw	$t0, 0($a0)  	        # t0 = mylist->head, smallest
+	lw	$t1, 4($a0)  	        # t1 = mylist->tail
+	bne	$t0, $t1, sl_2_or_more	# if (mylist->head == mylist->tail) {
+	jr	$ra  	  		#    return;
+
+sl_2_or_more:
+	sub	$sp, $sp, 12
+	sw	$ra, 0($sp)		# save $ra
+	sw	$a0, 4($sp)		# save my_list
+	lw	$t1, 8($t0)  	        # t1 = trav = smallest->next
+sl_loop:
+	beq	$t1, $zero, sl_loop_done # trav != NULL
+	lw	$t3, 0($t1) 		# trav->data
+	lw	$t2, 0($t0) 		# smallest->data
+	bge	$t3, $t2, sl_skip	# inverse of: if (trav->data < smallest->data) { 
+	move	$t0, $t1		# smallest = trav;
+sl_skip:
+	lw	$t1, 8($t1)		# trav = trav->next
+	j	sl_loop
 	
-sort_list_outer_loop:
-	ble	$a1, $zero, sort_list_done
-	lw	$v0, 0($a0)
-	lw	$v1, 0($a0)
-	li	$a2, 0
-	
-sort_list_inner_loop:
-	bge	$a2, $a1, sort_list_end_inner_loop
-	lw	$v1, 8($v1)
-	lw	$s0, 0($v0)
-	lw	$s1, 0($v1)
-	bge	$s0, $s1, sort_list_no_replace
-	or	$v0, $v1, $zero
-	
-sort_list_no_replace:
-	add	$a2, $a2, 1
-	j  	sort_list_inner_loop
-	
-sort_list_end_inner_loop:
-	sub	$a1, $a1, 1
-	beq	$v0, $v1, sort_list_outer_loop
-	lw	$s0, 12($v0)
-	lw	$s1, 12($v1)
-	sw	$s0, 12($v1)
-	sw	$s1, 12($v0)
-	lw	$a3, 0($v1)
-	sw	$a3, 0($v0)
-	j 	sort_list_outer_loop
-	
-sort_list_done:
-	j 	$ra
+sl_loop_done:
+	sw	$t0, 8($sp)		# save smallest
+
+	move	$a1, $a0		# my_list is arg2
+	move 	$a0, $t0		# smallest is arg1
+	jal 	remove_element		# remove_node(smallest, mylist);
+
+	lw	$a0, 4($sp)		# restore my_list as arg1
+	jal	sort_list		# sort_list(mylist);
+
+	lw	$a0, 8($sp)		# restore smallest as arg1
+	li	$a1, 0			# pass NULL as arg2
+	lw	$a2, 4($sp)		# restore my_list as arg3
+	jal	insert_element_after	# insert_node_after(smallest, NULL, mylist);
+
+	lw	$ra, 0($sp)		# restore $ra
+	add	$sp, $sp, 12
+	jr	$ra
+	# END sort_list
+
+  
   
 compact:
 # $a0 = trav, $a1 = trav->value, $v0 = accumulator / x-return, $v1 = y-return
