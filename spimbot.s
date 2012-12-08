@@ -35,7 +35,7 @@ print_float	= 0xffff0084	# Prints a float to the screen
 
 one		= 0x00000001    #the number one
 	
-	# NOTE: This is just my code for Lab9. A lot needs changing.
+
 
 
 	# The arena is 300x300
@@ -59,8 +59,8 @@ main:                                  # ENABLE INTERRUPTS
 
 	     
 	#Start a scan here
-	li	$s6, 0
-	li	$s5, 8 #space between 
+	li	$s6, 0 #decode count
+	li	$s5, 0 #scan count 
 	li $t4, 150
 	sw $t4, 0xffff0050($0)
 	li $t4, 150
@@ -79,17 +79,20 @@ main:                                  # ENABLE INTERRUPTS
 	li	$t9, 1
 	jr 	$t0
 
-
 	
 gettoken:
-	
-	sw 	$t9, scanflag($0)
-	move	$t5,$s6  #scan spot
+
+	mul	$t5, $s6, 16384  # sets the memery if this scan
+	add	$s6, $s6, 1           #scan num++
+	sw 	$v0, 0xffff0084($0) ##
+	sw 	$t5, 0xffff0080($0) ##
+	sw 	$v0, 0xffff0084($0) ##
+	li	$t6, 32   #scan all 31 times
+backtotokens:
+	beq	$0, $t6, infinite
+	sub	$t6, $t6, 1
 	lw	$t0, Scan_data($t5)
-
-backtotokens:	
-
-	beq	 $t0, $0, infinite ##leave if no tokens
+	beq	 $t0, $0, forNext  ##leave if no tokens
 	la	$a0, Scan_data
 	add	$a0, $a0, $t5
 
@@ -99,10 +102,12 @@ backtotokens:
 	add	$a0, $a0, $t5
 	sw 	$a0, 0xffff0080($0) ##
 	jal	compact
+	bgt	$v0, 300,  backtotokens
+	bgt	$v1, 300,  backtotokens
 	sw 	$v0, 0xffff0080($0) ##
 	sw 	$v1, 0xffff0080($0) ##prints to screen
 
-	add	$t5, $s5, $t5 #up next token locaion
+
 
 	lw	$a0, tokens_tail($0) 
 
@@ -111,13 +116,14 @@ backtotokens:
 
 	add	$a0, $a0, 12
 	sw	$a0, tokens_tail($0)
-	
+forNext:
+	add	$t5, $t5, 8    #up next token locaion	
 	j 	backtotokens
 
 
 infinite:
-	lw $t8,  scanflag($0)
-	beq $t8, $0, gettoken 
+	
+	blt $s6, $s5, gettoken 
 	
  j      infinite	
 
@@ -200,7 +206,7 @@ scan_interrupt: #Here I want to call a fresh scan and save my first for prossesi
 	mul	$a2, $a2, 4096 #(calulate the offset 4098 times 4 is16384)
 	add	$a1, $a1, $a2  #add the offset
         sw 	$a1, 0xffff005c($0)
-	sw	$0, scanflag($0)
+	add	$s5, $s5, 1
         j       interrupt_dispatch       # see if other interrupts are waiting
 lastTime10:
 	lw	$a1, scanlocX($0)
@@ -215,6 +221,7 @@ lastTime10:
 	la 	$a1, Scan_data
 	add	$a1, 147456         #9 times 16384 
         sw 	$a1, 0xffff005c($0)
+	add	$s5, $s5, 1
 	 j       interrupt_dispatch       # see if other interrupts are waiting
 
 timer_interrupt: # Here I want to move on to the next point (or set another timer interrupt to check for more, if I have no tokens but am not done)...
@@ -224,6 +231,9 @@ timer_interrupt: # Here I want to move on to the next point (or set another time
 	lw 	$a0, tokens_head($0)
 	lw 	$a1, tokens_tail($0)
 	beq 	$a0, $a1, after
+
+		sw 	$a1, 0xffff0080($0) ##
+		sw 	$a0, 0xffff0080($0) ##
 	
 	la $t1, driveFlag
 	lw $t0, driveFlag($0)
@@ -257,7 +267,7 @@ again:
 	jr 	$t0
 
 after:
-	bne $a0, $0, start
+	bne $a0, $a1, start
       lw      $k0, 0xffff001c($0)      # current time
       add     $k0, $k0, 10000  
       sw      $k0, 0xffff001c($0)      # request timer in 10000
@@ -515,7 +525,7 @@ compact_loop_start:
 compact_continue:
   lw   $a0, 8($a0)                  # trav = trav->next
   j    compact_loop_start           # restart loop
-  
+
 compact_finish:
   and  $v1, $v0, 0x0000FFFF         # mask away bottom 16(y) to $v1
   srl  $v0, $v0, 16                 # shift top 16(x) to $v0
