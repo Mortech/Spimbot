@@ -57,9 +57,8 @@ main:                                  # ENABLE INTERRUPTS
 
 	     
 	#Start a scan here
-	la $t0, tokens
-	sw $0, 0($t0)
-	sw $t0, 4($t0)
+	li	$s6, 0
+	li	$s5, 32 #space between 
 	li $t4, 150
 	sw $t4, 0xffff0050($0)
 	li $t4, 150
@@ -80,51 +79,81 @@ main:                                  # ENABLE INTERRUPTS
 
 fixHead:
 	la 	$t0, tokens
-	sw	$t0, tokens_head($0)
+
+	sw	$t0, tokens_tail($0)
 
 
-	lw	$a0, tokens_head($0) 
-	sw 	$v0, 0xffff0080($0) ##
-	sw 	$v1, 0xffff0080($0) ##prints to screen
-	sw	$v0, 0($a0)
-	sw	$v1, 4($a0)
-	sw	$0, 8($a0) #setnext null
+	sw	$v0, 0($t0)
+	sw	$v1, 4($t0)
+	sw	$0, 8($t0) #setnext null
 	j	backtotokens
 	
 gettoken:
 	
-	sw 	$t9 tempflag($0)
-
-backtotokens:	
-
-	#scan the first set
-
-
-	lw	$t0, Scan_data($0)
+	sw 	$t9, tempflag($0)
+	move	$t5,$s6  #scan spot
+	lw	$t0, Scan_data($t5)
 	sw	 $t0, 0xffff0080($0) ##
 	beq	 $t0, $0, infinite ##leave if no tokens
 	la	$a0, Scan_data
+	add	$a0, $a0, $t5
+
 	jal 	sort_list
 
 	la	$a0, Scan_data
+	add	$a0, $a0, $t5
 	jal	compact
 
+
+	add	$t5, $s5, $t5 #up next scan locaion
 	#fix the list if head is not set
 	
 	lw 	$a0, tokens_head($0)
 	beq	$a0, $0, fixHead
+	j	firsttime
+
+	#scan the first set
+backtotokens:
+
+	lw	$t0, Scan_data($t5)
+	sw	 $t0, 0xffff0080($0) ##
+	beq	 $t0, $0, preinf ##leave if no tokens
+	la	$a0, Scan_data
+	add	$a0, $a0, $t5
+
+	jal 	sort_list
+
+	la	$a0, Scan_data
+	add	$a0, $a0, $t5
+	jal	compact
+
+
+	add	$t5, $s5, $t5 #up next scan locaion
+	#fix the list if head is not set
 	
-	la	$a0, tokens_head 
-	add	$a0, $a0, 16 
+	lw 	$a0, tokens_head($0)
+	beq	$a0, $0, fixHead
+firsttime:	
+	lw	$a0, tokens_tail($0) 
+	add	$a0, $a0, 16
+	sw	$a0, tokens_tail($0)
 	sw 	$v0, 0xffff0080($0) ##
 	sw 	$v1, 0xffff0080($0) ##prints to screen
 	sw	$v0, 0($a0)
 	sw	$v1, 4($a0)
 	sw	$a0, tokens_head($0)  #save to head
 	sw	$0, 8($a0) #setnext null
-	sw	$0, -8($a0) #set prve next #todo set one
 
+	j 	backtotokens
+
+preinf:
+	sw	$a0, -8($a0) #set prve next #todo set one
+	add	$s6, $s6,  16384
+	lw 	$a0, tokens_head($0)
+	bne	$a0, $0, infinite
 	
+	la 	$t0, tokens
+	sw	$t0, tokens_head($0)	
 infinite:
 	lw $t8,  tempflag($0)
 	beq $t8, $0, gettoken 
@@ -261,8 +290,7 @@ again:
 	sw $t0, 0($t1)
 	lw $a1, 4($a0)
 	lw $t1, 8($a0)
-	lw $t0, tokens_head($0)
-	sw $t1, 0($t0)
+	sw $t1, tokens_head($0)
 	lw $a0, 0($a0)
 	la 	$ra, interrupt_dispatch
 	li $t1, 1
