@@ -89,7 +89,7 @@ fixHead:
 	sw	$v0, 0($a0)
 	sw	$v1, 4($a0)
 	sw	$0, 8($a0) #setnext null
-	j	backTotokens
+	j	backtotokens
 	
 gettoken:
 	
@@ -99,9 +99,11 @@ backtotokens:
 
 	#scan the first set
 
-	lw 	$t0, Scan_data($0)
+
+	lw	$t0, Scan_data($0)
 	sw	 $t0, 0xffff0080($0) ##
 	beq	 $t0, $0, infinite ##leave if no tokens
+	la	$a0, Scan_data
 	jal 	sort_list
 
 	la	$a0, Scan_data
