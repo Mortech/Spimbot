@@ -11,27 +11,26 @@
   $s5 - $s7 and $t7 - $t10 are not to be used by
   or stored away in funtions. They are saved for use as defind here:
 
-  $s5: the head of the token list
-  $s6: the tail of the token list 
+  $s5: 
+ 
 
 	$t8 and $t10: used in sort_list, should be restored when interrupting
-	$t9: constant value - 1
+	$t9: constant value = 1
+ $s7:  constant value = 15
+$s6: curr scan location
+
 
   more to come use on code you need to run alot.
 
 
 	MAKE SURE that new nodes added to the list have their next point to 0!
  */
-struct tokenlist{
-  token * head; //head points to the first valid token
-  token * tail; //tail can be whatever (starts null)
-};
+
 
 struct token {
   int x; //0
   int y; //4
-  token * next; //12
-  int zone; //16
+  int zone; //12
 };
 
 struct scanData{

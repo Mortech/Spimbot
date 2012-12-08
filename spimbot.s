@@ -1,9 +1,9 @@
  .data
 Scan_data:	.space 163840
-tokens:	.space	248 #list structure
+
 tokens_head:	.word 0
 tokens_tail:	.word 0	
-
+tokens:	.space	248 #list structure
 #list=
 #	head *
 #	tail *
@@ -15,7 +15,7 @@ scancontrol:	.word 0 #counter for scanning
 tokenHunt:	.word 0	#counter for collecting
 	
 driveFlag:.word 0 #driving flag
-tempflag:	.word 1		
+scanflag:	.word 1		
 	
 scanlocX: .word 1, 150, 50, 50, 50, 150, 250, 250, 250 # the first one is a flag
 scanlocY: .word 0, 250, 250, 150, 50, 50, 50, 150, 250	
@@ -53,7 +53,9 @@ main:                                  # ENABLE INTERRUPTS
      or     $t4, $t4, 0x1000           # bonk interrupt bit
      or     $t4, $t4, 1                # global interrupt enable
      mtc0   $t4, $12                   # set interrupt mask (Status register)
-	
+	la	$a0, tokens  #save to head
+	sw	$a0, tokens_head($0)  #save to head
+	sw	$a0, tokens_tail($0)
 
 	     
 	#Start a scan here
@@ -77,23 +79,16 @@ main:                                  # ENABLE INTERRUPTS
 	li	$t9, 1
 	jr 	$t0
 
-fixHead:
-	la 	$t0, tokens
 
-	sw	$t0, tokens_tail($0)
-	move 	$a0, $t0
-
-	sw	$v0, 0($t0)
-	sw	$v1, 4($t0)
-	sw	$0, 8($t0) #setnext null
-	j	backtotokens
 	
 gettoken:
 	
-	sw 	$t9, tempflag($0)
+	sw 	$t9, scanflag($0)
 	move	$t5,$s6  #scan spot
 	lw	$t0, Scan_data($t5)
-	sw	 $t0, 0xffff0080($0) ##
+
+backtotokens:	
+
 	beq	 $t0, $0, infinite ##leave if no tokens
 	la	$a0, Scan_data
 	add	$a0, $a0, $t5
@@ -102,66 +97,31 @@ gettoken:
 
 	la	$a0, Scan_data
 	add	$a0, $a0, $t5
+	sw 	$a0, 0xffff0080($0) ##
 	jal	compact
-
-
-	add	$t5, $s5, $t5 #up next scan locaion
-	#fix the list if head is not set
-	
-	lw 	$a0, tokens_head($0)
-	beq	$a0, $0, fixHead
-	j	firsttime
-
-	#scan the first set
-backtotokens:
-
-	lw	$t0, Scan_data($t5)
-	sw	 $t0, 0xffff0080($0) ##
-	beq	 $t0, $0, preinf ##leave if no tokens
-	la	$a0, Scan_data
-	add	$a0, $a0, $t5
-
-	jal 	sort_list
-
-	la	$a0, Scan_data
-	add	$a0, $a0, $t5
-	jal	compact
-
-
-	add	$t5, $s5, $t5 #up next scan locaion
-	#fix the list if head is not set
-	
-	lw 	$a0, tokens_head($0)
-	beq	$a0, $0, fixHead
-firsttime:	
-	lw	$a0, tokens_tail($0) 
-	add	$a0, $a0, 16
-	sw	$a0, tokens_tail($0)
 	sw 	$v0, 0xffff0080($0) ##
 	sw 	$v1, 0xffff0080($0) ##prints to screen
+
+	add	$t5, $s5, $t5 #up next token locaion
+
+	lw	$a0, tokens_tail($0) 
+
 	sw	$v0, 0($a0)
 	sw	$v1, 4($a0)
-	sw	$a0, tokens_head($0)  #save to head
 
-	sw	$a0, -8($a0) #set prve next #todo set one
+	add	$a0, $a0, 12
+	sw	$a0, tokens_tail($0)
+	
 	j 	backtotokens
 
-preinf:
-	sw	$0, 8($a0) 
-	add	$s6, $s6,  16384
-	lw 	$a0, tokens_head($0)
-	bne	$a0, $0, infinite
-	
-	la 	$t0, tokens
-	sw	$t0, tokens_head($0)	
+
 infinite:
-	lw $t8,  tempflag($0)
+	lw $t8,  scanflag($0)
 	beq $t8, $0, gettoken 
 	
  j      infinite	
 
 
-   
      nop
 
 
@@ -240,7 +200,7 @@ scan_interrupt: #Here I want to call a fresh scan and save my first for prossesi
 	mul	$a2, $a2, 4096 #(calulate the offset 4098 times 4 is16384)
 	add	$a1, $a1, $a2  #add the offset
         sw 	$a1, 0xffff005c($0)
-	sw	$0, tempflag($0)
+	sw	$0, scanflag($0)
         j       interrupt_dispatch       # see if other interrupts are waiting
 lastTime10:
 	lw	$a1, scanlocX($0)
@@ -261,8 +221,9 @@ timer_interrupt: # Here I want to move on to the next point (or set another time
       sw      $zero, 0xffff0010($zero) # set velocity to 0
       sw      $a1, 0xffff006c($zero)   # acknowledge interrupt
 
-	lw $a0, tokens_head($0)
-	beq $a0, $0, after
+	lw 	$a0, tokens_head($0)
+	lw 	$a1, tokens_tail($0)
+	beq 	$a0, $a1, after
 	
 	la $t1, driveFlag
 	lw $t0, driveFlag($0)
@@ -277,10 +238,7 @@ start:
 	sw $t0, 0($t1)
 	lw $a1, 4($a0)
 	lw $a0, 0($a0)
-	sw $t1, 0xffff0080($0) ##
-	sw $a0, 0xffff0080($0) ##
-	sw $a1, 0xffff0080($0) ##
-	sw $t1, 0xffff0080($0) ##
+
 	la 	$ra, interrupt_dispatch
 	la 	$t0, drive 
 	jr 	$t0
@@ -289,15 +247,12 @@ again:
 	addi $t0, $t0, 1
 	sw $t0, 0($t1)
 	lw $a1, 4($a0)
-	lw $t1, 8($a0)
-	sw $t1, tokens_head($0)
-	lw $a0, 0($a0)
+	add 	$t1, $a0, 12
+	sw 	$t1, tokens_head($0)
+	lw 	$a0, 0($a0)
 	la 	$ra, interrupt_dispatch
-	li $t1, 1
-	sw $t1, 0xffff0080($0) ##
-	sw $a0, 0xffff0080($0) ##
-	sw $a1, 0xffff0080($0) ##
-	sw $t1, 0xffff0080($0) ##
+	li 	$t1, 1
+
 	la 	$t0, drive 
 	jr 	$t0
 
@@ -432,6 +387,78 @@ no_TURN_90:
 
 	jr 	$ra
 	
+
+insert_element_after:	
+	# inserts the new element $a0 after $a1
+	# if $a1 is 0, then we insert at the front of the list
+
+	bne	$a1, $zero, iea_not_head # if a1 is null, we have to assign the head and tail
+
+	lw	$t0, 0($a2) 		# $t0 = mylist->head
+	sw	$t0, 8($a0)		# node->next = mylist->head;
+	beqz	$t0, iea_after_head	# if ( mylist->head != NULL ) {
+	sw	$a0, 4($t0)		#   mylist->head->prev = node;
+		     			# }
+	iea_after_head:	
+	sw	$a0, 0($a2)		# mylist->head = node;
+	lw	$t0, 4($a2)		# $t0 = mylist->tail
+	bnez	$t0, iea_done		# if ( mylist->tail == NULL ) {
+	sw	$a0, 4($a2)		#   mylist->tail = node;
+	iea_done:	     			# }
+	jr	$ra
+
+	iea_not_head:
+	lw	$t1, 8($a1)		# $t1 = prev->next
+	bne	$t1, $zero, iea_not_tail# if ( prev->next == NULL ) {
+	sw	$a0, 4($a2)		#   mylist->tail = node;
+	b	iea_end			# }
+	iea_not_tail:				# else {
+	sw	$t1, 8($a0)		#   node->next = prev->next;
+	sw	$a0, 4($t1)		#   node->next->prev = node;
+		     			# }
+
+	iea_end:	
+	sw	$a0, 8($a1)		# store the new pointer as the next of $a1
+	sw	$a1, 4($a0)		# store the old pointer as prev of $a0
+	jr	$ra			# return
+	# END insert_element_after
+
+	remove_element:
+	# removes the element at $a0 (list is in $a1)
+	# if this element is the whole list, we have to empty the list
+	lw	$t0, 0($a1)  	        # t0 = mylist->head
+	lw	$t1, 4($a1)  	        # t1 = mylist->tail
+	bne	$t0, $t1, re_not_empty_list
+
+	re_empty_list:
+	sw	$zero, 0($a1)		# zero out the head ptr
+	sw	$zero, 4($a1)		# zero out the tail ptr
+	j	re_done
+
+	re_not_empty_list:
+	lw	$t2, 4($a0)		# t2 = node->prev
+	lw	$t3, 8($a0)		# t3 = node->next
+	bne	$t2, $zero, re_not_first# if (node->prev == NULL) {
+
+	sw	$t3, 0($a1)		# mylist->head = node->next;
+	sw	$zero, 4($t3)		# node->next->prev = NULL;
+	j	re_done
+
+	re_not_first: 
+	bne	$t3, $zero, re_not_last# if (node->next == NULL) {
+	sw	$t2, 4($a1)		# mylist->tail = node->prev;
+	sw	$zero, 8($t2)		# node->prev->next = NULL;
+	j	re_done
+	re_not_last:
+	sw	$t3, 8($t2)		# node->prev->next = node->next;
+	sw	$t2, 4($t3)		# node->next->prev = node->prev;
+
+	re_done:
+	sw	$zero, 4($a0)		# zero out $a0's prev
+	sw	$zero, 8($a0)		# zero out $a0's next
+	jr	$ra			# return
+	# END remove_element
+
 	
 sort_list:
 	li	$a1, 31
@@ -468,7 +495,9 @@ sort_list_end_inner_loop:
 sort_list_done:
 	j 	$ra
   
-  
+
+
+	
 compact:
 # $a0 = trav, $a1 = trav->value, $v0 = accumulator / x-return, $v1 = y-return
   li   $v0, 0                       # initialize accumulator
@@ -496,6 +525,10 @@ compact_finish:
 #Function will set bot to drive to the x, y location.
 #$a0=x, $a1=y
 drive:
+		sw 	$a0, print_float($0)
+	sw 	$a0, print_int($0)
+	sw 	$a1, print_int($0)
+		sw 	$a1, print_float($0)
 	lw $t0, 0xffff0020($0) #x-loc
 	lw $t1, 0xffff0024($0) #y-loc
 	sub $a0, $a0, $t0 #x-delta
@@ -535,4 +568,8 @@ drive_end:
 	add $t0, $t0, $t1
 	sw $t0, 0xffff001c($0) #set timer to appropriate value
 	jr $ra
-compact_done:
+
+
+
+
+	
