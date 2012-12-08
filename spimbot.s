@@ -1,7 +1,9 @@
  .data
 Scan_data:	.space 163840
-
 tokens:	.space	248 #list structure
+tokens_head:	.word 0
+tokens_tail:	.word 0	
+
 #list=
 #	head *
 #	tail *
@@ -51,6 +53,8 @@ main:                                  # ENABLE INTERRUPTS
      or     $t4, $t4, 0x1000           # bonk interrupt bit
      or     $t4, $t4, 1                # global interrupt enable
      mtc0   $t4, $12                   # set interrupt mask (Status register)
+	
+
 	     
 	#Start a scan here
 	la $t0, tokens
@@ -70,30 +74,54 @@ main:                                  # ENABLE INTERRUPTS
 	li     $a0, 150
 	li	$a1, 150
 	la 	$ra, infinite
-	la 	$t0, drive 
-	jr 	$t0
+	la 	$t0, drive
 	li	$t9, 1
+	jr 	$t0
+
+fixHead:
+	la 	$t0, tokens
+	sw	$t0, tokens_head($0)
+
+
+	lw	$a0, tokens_head($0) 
+	sw 	$v0, 0xffff0080($0) ##
+	sw 	$v1, 0xffff0080($0) ##prints to screen
+	sw	$v0, 0($a0)
+	sw	$v1, 4($a0)
+	sw	$0, 8($a0) #setnext null
+	j	backTotokens
+	
 gettoken:
-	sw $t9 tempflag($0)
+	
+	sw 	$t9 tempflag($0)
+
+backtotokens:	
+
 	#scan the first set
 
-	la 	$a0, Scan_data
-	lw $t0, 0($a0)
-	sw $t0, 0xffff0080($0) ##
-	beq $t0, $0, infinite
+	lw 	$t0, Scan_data($0)
+	sw	 $t0, 0xffff0080($0) ##
+	beq	 $t0, $0, infinite ##leave if no tokens
 	jal 	sort_list
 
 	la	$a0, Scan_data
 	jal	compact
 
-	la	$a0, tokens 
-	add	$a0, $a0, 8 
-	sw $v0, 0xffff0080($0) ##
-	sw $v1, 0xffff0080($0) ##
+	#fix the list if head is not set
+	
+	lw 	$a0, tokens_head($0)
+	beq	$a0, $0, fixHead
+	
+	la	$a0, tokens_head 
+	add	$a0, $a0, 16 
+	sw 	$v0, 0xffff0080($0) ##
+	sw 	$v1, 0xffff0080($0) ##prints to screen
 	sw	$v0, 0($a0)
 	sw	$v1, 4($a0)
-	sw	$a0, tokens($0)
-	sw	$0, 8($a0)
+	sw	$a0, tokens_head($0)  #save to head
+	sw	$0, 8($a0) #setnext null
+	sw	$0, -8($a0) #set prve next #todo set one
+
 	
 infinite:
 	lw $t8,  tempflag($0)
@@ -201,12 +229,12 @@ lastTime10:
 timer_interrupt: # Here I want to move on to the next point (or set another timer interrupt to check for more, if I have no tokens but am not done)...
       sw      $zero, 0xffff0010($zero) # set velocity to 0
       sw      $a1, 0xffff006c($zero)   # acknowledge interrupt
-	la $t0, tokens
-	lw $a0, 0($t0)
+
+	lw $a0, tokens_head($0)
 	beq $a0, $0, after
 	
 	la $t1, driveFlag
-	lw $t0, 0($t1)
+	lw $t0, driveFlag($0)
 	bgt $t0, 1, after
 	bgt $t0, $0, again
 
@@ -231,7 +259,7 @@ again:
 	sw $t0, 0($t1)
 	lw $a1, 4($a0)
 	lw $t1, 8($a0)
-	la $t0, tokens
+	lw $t0, tokens_head($0)
 	sw $t1, 0($t0)
 	lw $a0, 0($a0)
 	la 	$ra, interrupt_dispatch
