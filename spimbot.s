@@ -58,7 +58,7 @@ main:                                  # ENABLE INTERRUPTS
 	     
 	#Start a scan here
 	li	$s6, 0
-	li	$s5, 32 #space between 
+	li	$s5, 8 #space between 
 	li $t4, 150
 	sw $t4, 0xffff0050($0)
 	li $t4, 150
@@ -81,7 +81,7 @@ fixHead:
 	la 	$t0, tokens
 
 	sw	$t0, tokens_tail($0)
-
+	move 	$a0, $t0
 
 	sw	$v0, 0($t0)
 	sw	$v1, 4($t0)
@@ -142,12 +142,12 @@ firsttime:
 	sw	$v0, 0($a0)
 	sw	$v1, 4($a0)
 	sw	$a0, tokens_head($0)  #save to head
-	sw	$0, 8($a0) #setnext null
 
+	sw	$a0, -8($a0) #set prve next #todo set one
 	j 	backtotokens
 
 preinf:
-	sw	$a0, -8($a0) #set prve next #todo set one
+	sw	$0, 8($a0) 
 	add	$s6, $s6,  16384
 	lw 	$a0, tokens_head($0)
 	bne	$a0, $0, infinite
@@ -354,15 +354,6 @@ nine:	.float	9.0
 eleven:.float	11.0
 thirteen:.float	13.0
 fifteen:.float	15.0
-seventeen:.float	17.0
-nineteen:.float	19.0
-twoone:.float	21.0
-twothree:.float	23.0
-twofive:.float	25.0
-twoseven:.float	27.0
-twonine:.float	29.0
-theone:.float	31.0
-thethree:.float	33.0
 PI:	.float	3.14159
 F180:	.float  180.0
 	
