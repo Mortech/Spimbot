@@ -65,7 +65,7 @@ main:                                  # ENABLE INTERRUPTS
 	sw $t4, 0xffff0050($0)
 	li $t4, 150
 	sw $t4, 0xffff0054($0)
-	li $t4, 50
+	li $t4, 71
 	sw $t4, 0xffff0058($0)
 	la $t4, Scan_data
 	sw $t4, 0xffff005c($0)
@@ -84,33 +84,22 @@ gettoken:
 
 	mul	$t5, $s6, 16384  # sets the memery if this scan
 	add	$s6, $s6, 1           #scan num++
-	sw 	$v0, 0xffff0084($0) ##
-	sw 	$t5, 0xffff0080($0) ##
-	sw 	$v0, 0xffff0084($0) ##
-	li	$t6, 15   #scan all 31 times
+	li	$t6, 15   #scan all 15 times
 	la	$a0, Scan_data
 	add 	$a0, $a0, $t5
-	sw 	$a0, 0xffff0080($0) ##
+	
 backtotokens:
 	beq	$0, $t6, infinite
 	sub	$t6, $t6, 1
 	lw	$t0, Scan_data($t5)
-	beq	 $t0, $0, forNext  ##leave if no tokens
 	la	$a0, Scan_data
 	add	$a0, $a0, $t5
 
-	jal 	sort_list
-
-	la	$a0, Scan_data
-	add	$a0, $a0, $t5
-#	sw 	$a0, 0xffff0080($0) ##
+	jal sort_list
 	jal	compact
-	bgt	$v0, 300,  backtotokens
-	bgt	$v1, 300,  backtotokens
-#	sw 	$v0, 0xffff0080($0) ##
-#	sw 	$v1, 0xffff0080($0) ##prints to screen
-
-
+	
+	bgt	$v0, 300,  infinite
+	bgt	$v1, 300,  infinite
 
 	lw	$a0, tokens_tail($0) 
 
@@ -157,63 +146,61 @@ interrupt_handler:
       sw      $t4, 28($k0)
       sw      $v0, 32($k0)
       sw      $ra, 36($k0)
-      mfc0    $k0, $13                 # Get Cause register                       
-      srl     $a0, $k0, 2                
-      and     $a0, $a0, 0xf            # ExcCode field                            
-      bne     $a0, 0, non_intrpt         
+      mfc0    $k0, $13                 # Get Cause register
+      srl     $a0, $k0, 2
+      and     $a0, $a0, 0xf            # ExcCode field
+      bne     $a0, 0, non_intrpt
 
-interrupt_dispatch:                    # Interrupt:                             
-      mfc0    $k0, $13                 # Get Cause register, again                 
-      beq     $k0, $zero, done         # handled all outstanding interrupts     
+interrupt_dispatch:					# Interrupt:
+	mfc0	$k0, $13				# Get Cause register, again
+	beq		$k0, $zero, done		# handled all outstanding interrupts
 
-      and     $a0, $k0, 0x1000         # is there a bonk interrupt?                
-      bne     $a0, 0, bonk_interrupt   
+	and		$a0, $k0, 0x1000		# is there a bonk interrupt?                
+	bne		$a0, 0, bonk_interrupt
 
-      and     $a0, $k0, 0x8000         # is there a timer interrupt?
-      bne     $a0, 0, timer_interrupt
+	and		$a0, $k0, 0x8000		# is there a timer interrupt?
+	bne		$a0, 0, timer_interrupt
 
-	and     $a0, $k0, 0x2000         # is there a scan interrupt?
-      bne     $a0, 0, scan_interrupt
+	and		$a0, $k0, 0x2000		# is there a scan interrupt?
+	bne		$a0, 0, scan_interrupt
 
-                         # add dispatch for other interrupt types here.
-	add $k0, $v0, $zero
-      li      $v0, 4                   # Unhandled interrupt types
+									# add dispatch for other interrupt types here.
+	add		$k0, $v0, $zero
+	li		$v0, 4					# Unhandled interrupt types
 
-      la      $a0, unhandled_str
-      syscall 
-	add $v0, $k0, $zero
-      j       done
+	la		$a0, unhandled_str
+	syscall 
+	add		$v0, $k0, $zero
+	j		done
 
 bonk_interrupt: #bonk shouldn't ever happen, do not need to worry about it...
-      sw      $zero, 0xffff0010($zero) # set velocity to 0
-      sw      $a1, 0xffff0060($zero)   # acknowledge interrupt
+	sw		$zero, 0xffff0010($zero) # set velocity to 0
+	sw		$a1, 0xffff0060($zero)   # acknowledge interrupt
 
-      j       interrupt_dispatch       # see if other interrupts are waiting
+	j		interrupt_dispatch       # see if other interrupts are waiting
 
-scan_interrupt: #Here I want to call a fresh scan and save my first for prossesing
-     # sw      $zero, 0xffff0010($zero) # set velocity to 
-        sw      $a1, 0xffff0064($zero)   # acknowledge interrupt
-        lw  	$a2, scancontrol($0) #a2 is the scan number
-        li      $a0 8 #the 8th time will stor the 9th value
-        beq 	$a0, $a2, lastTime10
-        add 	$a2, $a2, 1 
-        sw 	$a2, scancontrol($0)
-	mul	$a2, $a2 4
-	lw 	$a1, scanlocX($a2)
-        sw 	$a1, 0xffff0050($0)
-        lw	$a1, scanlocY($a2)
-        sw 	$a1, 0xffff0054($0)
-        li 	$a1, 50
-        sw 	$a1, 0xffff0058($0)
-        la 	$a1, Scan_data
-	mul	$a2, $a2, 4096 #(calulate the offset 4098 times 4 is16384)
-	add	$a1, $a1, $a2  #add the offset
-	sw 	$a1, 0xffff0080($0) ##
-        sw 	$a1, 0xffff005c($0)
-
-
-	add	$s5, $s5, 1
-        j       interrupt_dispatch       # see if other interrupts are waiting
+scan_interrupt: #Here I want to call a fresh scan and save my first for processing
+	sw		$a1, 0xffff0064($zero)   # acknowledge interrupt
+	lw		$a2, scancontrol($0) #a2 is the scan number
+	li		$a0 8 #the 8th time will stor the 9th value
+	beq 	$a0, $a2, lastTime10
+	add		$a2, $a2, 1 
+	sw		$a2, scancontrol($0)
+	mul		$a2, $a2 4
+	lw		$a1, scanlocX($a2)
+	sw		$a1, 0xffff0050($0)
+	lw		$a1, scanlocY($a2)
+	sw		$a1, 0xffff0054($0)
+	li		$a1, 71
+	sw		$a1, 0xffff0058($0)
+	la		$a1, Scan_data
+	mul		$a2, $a2, 4096 #(calulate the offset 4098 times 4 is16384)
+	add		$a1, $a1, $a2  #add the offset
+	sw		$a1, 0xffff0080($0) ##
+	sw		$a1, 0xffff005c($0)
+	add		$s5, $s5, 1
+	j       interrupt_dispatch       # see if other interrupts are waiting
+	
 lastTime10:
 	lw	$a1, scanlocX($0)
 	li	$a2, 10
