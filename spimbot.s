@@ -76,7 +76,6 @@ main:                                  # ENABLE INTERRUPTS
 	li	$a1, 150
 	la 	$ra, infinite
 	la 	$t0, drive
-	li	$t9, 1
 	jr 	$t0
 
 	
