@@ -65,7 +65,7 @@ main:                                  # ENABLE INTERRUPTS
 	sw $t4, 0xffff0050($0)
 	li $t4, 150
 	sw $t4, 0xffff0054($0)
-	li $t4, 50
+	li $t4, 71
 	sw $t4, 0xffff0058($0)
 	la $t4, Scan_data
 	sw $t4, 0xffff005c($0)
@@ -76,7 +76,6 @@ main:                                  # ENABLE INTERRUPTS
 	li	$a1, 150
 	la 	$ra, infinite
 	la 	$t0, drive
-	li	$t9, 1
 	jr 	$t0
 
 	
@@ -84,33 +83,22 @@ gettoken:
 
 	mul	$t5, $s6, 16384  # sets the memery if this scan
 	add	$s6, $s6, 1           #scan num++
-	sw 	$v0, 0xffff0084($0) ##
-	sw 	$t5, 0xffff0080($0) ##
-	sw 	$v0, 0xffff0084($0) ##
-	li	$t6, 15   #scan all 31 times
+	li	$t6, 15   #scan all 15 times
 	la	$a0, Scan_data
 	add 	$a0, $a0, $t5
-	sw 	$a0, 0xffff0080($0) ##
+	
 backtotokens:
 	beq	$0, $t6, infinite
 	sub	$t6, $t6, 1
 	lw	$t0, Scan_data($t5)
-	beq	 $t0, $0, forNext  ##leave if no tokens
 	la	$a0, Scan_data
 	add	$a0, $a0, $t5
 
-	jal 	sort_list
-
-	la	$a0, Scan_data
-	add	$a0, $a0, $t5
-#	sw 	$a0, 0xffff0080($0) ##
+	jal sort_list
 	jal	compact
-	bgt	$v0, 300,  backtotokens
-	bgt	$v1, 300,  backtotokens
-#	sw 	$v0, 0xffff0080($0) ##
-#	sw 	$v1, 0xffff0080($0) ##prints to screen
-
-
+	
+	bgt	$v0, 300,  infinite
+	bgt	$v1, 300,  infinite
 
 	lw	$a0, tokens_tail($0) 
 
@@ -146,174 +134,143 @@ interrupt_handler:
 .set noat
       move      $k1, $at               # Save $at                               
 .set at
-      la      $k0, chunkIH                
-            sw      $a0, 0($k0)              # Get some free registers                  
-      sw      $a1, 4($k0)              # by storing them to a global variable     
-      sw      $a2, 8($k0)
-      sw      $t0, 12($k0)
-      sw      $t1, 16($k0)
-      sw      $t2, 20($k0)
-      sw      $t3, 24($k0)
-      sw      $t4, 28($k0)
-      sw      $v0, 32($k0)
-      sw      $ra, 36($k0)
-      mfc0    $k0, $13                 # Get Cause register                       
-      srl     $a0, $k0, 2                
-      and     $a0, $a0, 0xf            # ExcCode field                            
-      bne     $a0, 0, non_intrpt         
+	la		$k0, chunkIH
+	sw		$a0, 0($k0)              # Get some free registers                  
+	sw		$a1, 4($k0)              # by storing them to a global variable     
+	sw		$a2, 8($k0)
+	sw		$t0, 12($k0)
+	sw		$t1, 16($k0)
+	sw		$v0, 20($k0)
+	sw		$ra, 24($k0)
+	mfc0	$k0, $13                 # Get Cause register
+	srl		$a0, $k0, 2
+	and		$a0, $a0, 0xf            # ExcCode field
+	bne		$a0, 0, done
 
-interrupt_dispatch:                    # Interrupt:                             
-      mfc0    $k0, $13                 # Get Cause register, again                 
-      beq     $k0, $zero, done         # handled all outstanding interrupts     
+interrupt_dispatch:					# Interrupt:
+	mfc0	$k0, $13				# Get Cause register, again
+	beq		$k0, $zero, done		# handled all outstanding interrupts
 
-      and     $a0, $k0, 0x1000         # is there a bonk interrupt?                
-      bne     $a0, 0, bonk_interrupt   
+	and		$a0, $k0, 0x1000		# is there a bonk interrupt?                
+	bne		$a0, 0, bonk_interrupt
 
-      and     $a0, $k0, 0x8000         # is there a timer interrupt?
-      bne     $a0, 0, timer_interrupt
+	and		$a0, $k0, 0x8000		# is there a timer interrupt?
+	bne		$a0, 0, timer_interrupt
 
-	and     $a0, $k0, 0x2000         # is there a scan interrupt?
-      bne     $a0, 0, scan_interrupt
-
-                         # add dispatch for other interrupt types here.
-	add $k0, $v0, $zero
-      li      $v0, 4                   # Unhandled interrupt types
-
-      la      $a0, unhandled_str
-      syscall 
-	add $v0, $k0, $zero
-      j       done
+	and		$a0, $k0, 0x2000		# is there a scan interrupt?
+	bne		$a0, 0, scan_interrupt
 
 bonk_interrupt: #bonk shouldn't ever happen, do not need to worry about it...
-      sw      $zero, 0xffff0010($zero) # set velocity to 0
-      sw      $a1, 0xffff0060($zero)   # acknowledge interrupt
+	sw		$zero, 0xffff0010($zero) # set velocity to 0
+	sw		$a1, 0xffff0060($zero)   # acknowledge interrupt
 
-      j       interrupt_dispatch       # see if other interrupts are waiting
+	j		interrupt_dispatch       # see if other interrupts are waiting
 
-scan_interrupt: #Here I want to call a fresh scan and save my first for prossesing
-     # sw      $zero, 0xffff0010($zero) # set velocity to 
-        sw      $a1, 0xffff0064($zero)   # acknowledge interrupt
-        lw  	$a2, scancontrol($0) #a2 is the scan number
-        li      $a0 8 #the 8th time will stor the 9th value
-        beq 	$a0, $a2, lastTime10
-        add 	$a2, $a2, 1 
-        sw 	$a2, scancontrol($0)
-	mul	$a2, $a2 4
-	lw 	$a1, scanlocX($a2)
-        sw 	$a1, 0xffff0050($0)
-        lw	$a1, scanlocY($a2)
-        sw 	$a1, 0xffff0054($0)
-        li 	$a1, 50
-        sw 	$a1, 0xffff0058($0)
-        la 	$a1, Scan_data
-	mul	$a2, $a2, 4096 #(calulate the offset 4098 times 4 is16384)
-	add	$a1, $a1, $a2  #add the offset
-	sw 	$a1, 0xffff0080($0) ##
-        sw 	$a1, 0xffff005c($0)
-
-
-	add	$s5, $s5, 1
-        j       interrupt_dispatch       # see if other interrupts are waiting
+scan_interrupt: #Here I want to call a fresh scan and save my first for processing
+	sw		$a1, 0xffff0064($zero)   # acknowledge interrupt
+	lw		$a2, scancontrol($0) #a2 is the scan number
+	li		$a0 8 #the 8th time will stor the 9th value
+	beq 	$a0, $a2, lastTime10
+	add		$a2, $a2, 1 
+	sw		$a2, scancontrol($0)
+	mul		$a2, $a2 4
+	lw		$a1, scanlocX($a2)
+	sw		$a1, 0xffff0050($0)
+	lw		$a1, scanlocY($a2)
+	sw		$a1, 0xffff0054($0)
+	li		$a1, 71
+	sw		$a1, 0xffff0058($0)
+	la		$a1, Scan_data
+	mul		$a2, $a2, 4096 #(calulate the offset 4098 times 4 is16384)
+	add		$a1, $a1, $a2  #add the offset
+	sw		$a1, 0xffff005c($0)
+	add		$s5, $s5, 1
+	j       interrupt_dispatch       # see if other interrupts are waiting
+	
 lastTime10:
-	lw	$a1, scanlocX($0)
-	li	$a2, 10
-	beq	$s5, $a2, interrupt_dispatch
-	beq	$a1, $0, endlasttime
-	sw	$0, scanlocX($0)
-	 li 	$a1, 150
-        sw 	$a1, 0xffff0050($0)
-        li 	$a1, 150
-        sw 	$a1, 0xffff0054($0)
-        li 	$a1, 225
-        sw 	$a1, 0xffff0058($0)
-	la 	$a1, Scan_data
-	add	$a1, 147456         #9 times 16384
-	sw 	$a1, 0xffff0080($0) ##
-        sw 	$a1, 0xffff005c($0)
+	lw		$a1, scanlocX($0)
+	li		$a2, 10
+	beq		$s5, $a2, interrupt_dispatch
+	beq		$a1, $0, endlasttime
+	sw		$0, scanlocX($0)
+	li		$a1, 150
+	sw		$a1, 0xffff0050($0)
+	li		$a1, 150
+	sw		$a1, 0xffff0054($0)
+	li		$a1, 225
+	sw		$a1, 0xffff0058($0)
+	la		$a1, Scan_data
+	add		$a1, 147456         #9 times 16384
+	sw		$a1, 0xffff005c($0)
 
-endlasttime:	
-	add	$s5, $s5, 1
-
-	 j       interrupt_dispatch       # see if other interrupts are waiting
+endlasttime:
+	add		$s5, $s5, 1
+	j		interrupt_dispatch       # see if other interrupts are waiting
 
 timer_interrupt: # Here I want to move on to the next point (or set another timer interrupt to check for more, if I have no tokens but am not done)...
-      sw      $zero, 0xffff0010($zero) # set velocity to 0
-      sw      $a1, 0xffff006c($zero)   # acknowledge interrupt
+	sw		$zero, 0xffff0010($zero) # set velocity to 0
+	sw		$a1, 0xffff006c($zero)   # acknowledge interrupt
 
-	lw 	$a0, tokens_head($0)
-	lw 	$a1, tokens_tail($0)
-	beq 	$a0, $a1, after
+	lw		$a0, tokens_head($0)
+	lw		$a1, tokens_tail($0)
+	beq		$a0, $a1, after
 
-	#	sw 	$a1, 0xffff0080($0) ##
-	#	sw 	$a0, 0xffff0080($0) ##
-	
-	la $t1, driveFlag
-	lw $t0, driveFlag($0)
-	bgt $t0, 1, after
-	bgt $t0, $0, again
+	la		$t1, driveFlag
+	lw		$t0, driveFlag($0)
+	bgt		$t0, 1, after
+	bgt		$t0, $0, again
 
-      lw      $k0, 0xffff001c($0)      # current time
-      add     $k0, $k0, 10000  
-      sw      $k0, 0xffff001c($0)      # request timer in 10000
+	lw		$k0, 0xffff001c($0)      # current time
+	add		$k0, $k0, 10000
+	sw		$k0, 0xffff001c($0)      # request timer in 10000
+
 start:
-	addi $t0, $0, 1
-	sw $t0, 0($t1)
-	lw $a1, 4($a0)
-	lw $a0, 0($a0)
+	addi	$t0, $0, 1
+	sw		$t0, 0($t1)
+	lw		$a1, 4($a0)
+	lw		$a0, 0($a0)
 
-	la 	$ra, interrupt_dispatch
-	la 	$t0, drive 
-	jr 	$t0
+	la		$ra, interrupt_dispatch
+	la		$t0, drive 
+	jr		$t0
 	
 again:
-	addi $t0, $t0, 1
-	sw $t0, 0($t1)
-	lw $a1, 4($a0)
-	add 	$t1, $a0, 12
-	sw 	$t1, tokens_head($0)
-	lw 	$a0, 0($a0)
-	la 	$ra, interrupt_dispatch
-	li 	$t1, 1
+	addi	$t0, $t0, 1
+	sw		$t0, 0($t1)
+	lw		$a1, 4($a0)
+	add		$t1, $a0, 12
+	sw		$t1, tokens_head($0)
+	lw		$a0, 0($a0)
+	la		$ra, interrupt_dispatch
+	li		$t1, 1
 
-	la 	$t0, drive 
-	jr 	$t0
+	la		$t0, drive
+	jr		$t0
 
 after:
-	bne $a0, $a1, start
-      lw      $k0, 0xffff001c($0)      # current time
-      add     $k0, $k0, 10000  
-      sw      $k0, 0xffff001c($0)      # request timer in 10000
-	
+	bne		$a0, $a1, start
+	lw		$k0, 0xffff001c($0)      # current time
+	add		$k0, $k0, 10000  
+	sw		$k0, 0xffff001c($0)      # request timer in 10000
 
-      j       interrupt_dispatch       # see if other interrupts are waiting
-
-non_intrpt:                            # was some non-interrupt
-add $k0, $v0, $zero
-      li      $v0, 4
-      la      $a0, non_intrpt_str
-      syscall                          # print out an error message
-add $v0, $k0, $zero
-      # fall through to done
+	j		interrupt_dispatch       # see if other interrupts are waiting
 
 done:
-      la      $k0, chunkIH
-      lw      $a0, 0($k0)              # Restore saved registers
-      lw      $a1, 4($k0)
-      lw      $a2, 8($k0)
-      lw      $t0, 12($k0)
-      lw      $t1, 16($k0)
-      lw      $t2, 20($k0)
-      lw      $t3, 24($k0)
-      lw      $t4, 28($k0)
-      lw      $v0, 32($k0)
-      lw      $ra, 36($k0)
-      mfc0    $k0, $14                 # Exception Program Counter (PC)
+	la		$k0, chunkIH
+	lw		$a0, 0($k0)              # Restore saved registers
+	lw		$a1, 4($k0)
+	lw		$a2, 8($k0)
+	lw		$t0, 12($k0)
+	lw		$t1, 16($k0)
+	lw		$v0, 20($k0)
+	lw		$ra, 24($k0)
+	mfc0	$k0, $14                 # Exception Program Counter (PC)
 .set noat
-      move    $at, $k1                 # Restore $at
-.set at 
-      rfe   
-      jr      $k0
-      nop
+	move	$at, $k1                 # Restore $at
+.set at
+	rfe   
+	jr		$k0
+	nop
 
 
 
@@ -360,126 +317,60 @@ no_TURN_90:
 	cvt.s.w $f0, $f0	# convert from ints to floats
 	cvt.s.w $f1, $f1
 	
+	bne		$t9, $zero, floats_initialized
+	li		$t9, 1					# flag $t9 that floats are initialized
+	l.s		$f3, three($zero)		# load 3.0
+	l.s		$f5, five($zero)		# load 5.0
+	l.s		$f7, seven($zero)		# load 7.0
+	l.s		$f9, nine($zero)		# load 9.0
+	l.s		$f11, eleven($zero)		# load 11.0
+	l.s		$f13, thirteen($zero)	# load 13.0
+	l.s		$f15, fifteen($zero)	# load 15.0
+	l.s		$f8, PI($zero)			# load PI
+	l.s		$f10, F180($zero)		# load 180.0
+	
+floats_initialized:
 	div.s	$f0, $f1, $f0	# float v = (float) y / (float) x;
 
 	mul.s	$f1, $f0, $f0	# v^^2
 	mul.s	$f2, $f1, $f0	# v^^3
-	l.s	$f3, three($zero)	# load 3.0
-	div.s 	$f3, $f2, $f3	# v^^3/3
-	sub.s	$f6, $f0, $f3	# v - v^^3/3
+	
+	div.s 	$f4, $f2, $f3	# v^^3/3
+	sub.s	$f6, $f0, $f4	# value = v - v^^3/3
 
-	mul.s	$f4, $f1, $f2	# v^^5
-	l.s	$f5, five($zero)	# load 5.0
-	div.s 	$f5, $f4, $f5	# v^^5/5
-	add.s	$f6, $f6, $f5	# value = v - v^^3/3 + v^^5/5
+	mul.s	$f2, $f1, $f2	# v^^5
+	div.s 	$f4, $f2, $f5	# v^^5/5
+	add.s	$f6, $f6, $f4	# value = value + v^^5/5
 
-	mul.s	$f2, $f1, $f4	# v^^7
-	l.s	$f3, seven($zero)	# load 7.0
-	div.s 	$f3, $f2, $f3	# v^^7/7
-	sub.s	$f6, $f6, $f3	# value - v^^7/7
+	mul.s	$f2, $f1, $f2	# v^^7
+	div.s 	$f4, $f2, $f7	# v^^7/7
+	sub.s	$f6, $f6, $f4	# value - v^^7/7
 
 	mul.s	$f2, $f1, $f2	# v^^9
-	l.s	$f3, nine($zero)	# load 9.0
-	div.s 	$f3, $f2, $f3	# v^^9/9
-	add.s	$f6, $f6, $f3	# value + v^^9/9
+	div.s 	$f4, $f2, $f9	# v^^9/9
+	add.s	$f6, $f6, $f4	# value + v^^9/9
 
 	mul.s	$f2, $f1, $f2	# v^^11
-	l.s	$f3, eleven($zero)	# load 11.0
-	div.s 	$f3, $f2, $f3	# v^^11/11
-	sub.s	$f6, $f6, $f3	# value + v^^11/11
+	div.s 	$f4, $f2, $f11	# v^^11/11
+	sub.s	$f6, $f6, $f4	# value + v^^11/11
 
 	mul.s	$f2, $f1, $f2	# v^^13
-	l.s	$f3, thirteen($zero)	# load 13.0
-	div.s 	$f3, $f2, $f3	# v^^13/13
-	add.s	$f6, $f6, $f3	# value + v^^13/13
+	div.s 	$f4, $f2, $f13	# v^^13/13
+	add.s	$f6, $f6, $f4	# value + v^^13/13
 
 	mul.s	$f2, $f1, $f2	# v^^13
-	l.s	$f3, fifteen($zero)	# load 15.0
-	div.s 	$f3, $f2, $f3	# v^^15/15
-	sub.s	$f6, $f6, $f3	# value + v^^15/15
+	div.s 	$f4, $f2, $f15	# v^^15/15
+	sub.s	$f6, $f6, $f4	# value + v^^15/15
 
-	l.s	$f8, PI($zero)		# load PI
 	div.s	$f6, $f6, $f8	# value / PI
 	l.s	$f7, F180($zero)	# load 180.0
-	mul.s	$f6, $f6, $f7	# 180.0 * value / PI
+	mul.s	$f6, $f6, $f10	# 180.0 * value / PI
 
 	cvt.w.s $f6, $f6	# convert "delta" back to integer
 	mfc1	$t0, $f6
 	add	$v0, $v0, $t0	# angle += delta
 
 	jr 	$ra
-	
-
-insert_element_after:	
-	# inserts the new element $a0 after $a1
-	# if $a1 is 0, then we insert at the front of the list
-
-	bne	$a1, $zero, iea_not_head # if a1 is null, we have to assign the head and tail
-
-	lw	$t0, 0($a2) 		# $t0 = mylist->head
-	sw	$t0, 8($a0)		# node->next = mylist->head;
-	beqz	$t0, iea_after_head	# if ( mylist->head != NULL ) {
-	sw	$a0, 4($t0)		#   mylist->head->prev = node;
-		     			# }
-	iea_after_head:	
-	sw	$a0, 0($a2)		# mylist->head = node;
-	lw	$t0, 4($a2)		# $t0 = mylist->tail
-	bnez	$t0, iea_done		# if ( mylist->tail == NULL ) {
-	sw	$a0, 4($a2)		#   mylist->tail = node;
-	iea_done:	     			# }
-	jr	$ra
-
-	iea_not_head:
-	lw	$t1, 8($a1)		# $t1 = prev->next
-	bne	$t1, $zero, iea_not_tail# if ( prev->next == NULL ) {
-	sw	$a0, 4($a2)		#   mylist->tail = node;
-	b	iea_end			# }
-	iea_not_tail:				# else {
-	sw	$t1, 8($a0)		#   node->next = prev->next;
-	sw	$a0, 4($t1)		#   node->next->prev = node;
-		     			# }
-
-	iea_end:	
-	sw	$a0, 8($a1)		# store the new pointer as the next of $a1
-	sw	$a1, 4($a0)		# store the old pointer as prev of $a0
-	jr	$ra			# return
-	# END insert_element_after
-
-	remove_element:
-	# removes the element at $a0 (list is in $a1)
-	# if this element is the whole list, we have to empty the list
-	lw	$t0, 0($a1)  	        # t0 = mylist->head
-	lw	$t1, 4($a1)  	        # t1 = mylist->tail
-	bne	$t0, $t1, re_not_empty_list
-
-	re_empty_list:
-	sw	$zero, 0($a1)		# zero out the head ptr
-	sw	$zero, 4($a1)		# zero out the tail ptr
-	j	re_done
-
-	re_not_empty_list:
-	lw	$t2, 4($a0)		# t2 = node->prev
-	lw	$t3, 8($a0)		# t3 = node->next
-	bne	$t2, $zero, re_not_first# if (node->prev == NULL) {
-
-	sw	$t3, 0($a1)		# mylist->head = node->next;
-	sw	$zero, 4($t3)		# node->next->prev = NULL;
-	j	re_done
-
-	re_not_first: 
-	bne	$t3, $zero, re_not_last# if (node->next == NULL) {
-	sw	$t2, 4($a1)		# mylist->tail = node->prev;
-	sw	$zero, 8($t2)		# node->prev->next = NULL;
-	j	re_done
-	re_not_last:
-	sw	$t3, 8($t2)		# node->prev->next = node->next;
-	sw	$t2, 4($t3)		# node->next->prev = node->prev;
-
-	re_done:
-	sw	$zero, 4($a0)		# zero out $a0's prev
-	sw	$zero, 8($a0)		# zero out $a0's next
-	jr	$ra			# return
-	# END remove_element
 
 	
 sort_list:
@@ -516,9 +407,7 @@ sort_list_end_inner_loop:
 	
 sort_list_done:
 	j 	$ra
-  
-
-
+	
 	
 compact:
 # $a0 = trav, $a1 = trav->value, $v0 = accumulator / x-return, $v1 = y-return
@@ -590,8 +479,3 @@ drive_end:
 	add $t0, $t0, $t1
 	sw $t0, 0xffff001c($0) #set timer to appropriate value
 	jr $ra
-
-
-
-
-	

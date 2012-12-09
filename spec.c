@@ -15,7 +15,7 @@
  
 
 	$t8 and $t10: used in sort_list, should be restored when interrupting
-	$t9: constant value = 1
+	$t9: flag for float initialization
  $s7:  constant value = 15
 $s6: curr scan location
 
