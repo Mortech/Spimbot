@@ -76,6 +76,7 @@ main:                                  # ENABLE INTERRUPTS
 	li	$a1, 150
 	la 	$ra, infinite
 	la 	$t0, drive
+	li	$t9, 1
 	jr 	$t0
 
 	
@@ -145,7 +146,7 @@ interrupt_handler:
 	mfc0	$k0, $13                 # Get Cause register
 	srl		$a0, $k0, 2
 	and		$a0, $a0, 0xf            # ExcCode field
-	bne		$a0, 0, non_intrpt
+	bne		$a0, 0, done
 
 interrupt_dispatch:					# Interrupt:
 	mfc0	$k0, $13				# Get Cause register, again
@@ -159,15 +160,6 @@ interrupt_dispatch:					# Interrupt:
 
 	and		$a0, $k0, 0x2000		# is there a scan interrupt?
 	bne		$a0, 0, scan_interrupt
-
-									# add dispatch for other interrupt types here.
-	add		$k0, $v0, $zero
-	li		$v0, 4					# Unhandled interrupt types
-
-	la		$a0, unhandled_str
-	syscall 
-	add		$v0, $k0, $zero
-	j		done
 
 bonk_interrupt: #bonk shouldn't ever happen, do not need to worry about it...
 	sw		$zero, 0xffff0010($zero) # set velocity to 0
@@ -263,14 +255,6 @@ after:
 	sw		$k0, 0xffff001c($0)      # request timer in 10000
 
 	j		interrupt_dispatch       # see if other interrupts are waiting
-
-non_intrpt:                          # was some non-interrupt
-	add		$k0, $v0, $zero
-	li		$v0, 4
-	la		$a0, non_intrpt_str
-	syscall                          # print out an error message
-	add		$v0, $k0, $zero
-	# fall through to done
 
 done:
 	la		$k0, chunkIH
