@@ -135,21 +135,18 @@ interrupt_handler:
 .set noat
       move      $k1, $at               # Save $at                               
 .set at
-      la      $k0, chunkIH                
-            sw      $a0, 0($k0)              # Get some free registers                  
-      sw      $a1, 4($k0)              # by storing them to a global variable     
-      sw      $a2, 8($k0)
-      sw      $t0, 12($k0)
-      sw      $t1, 16($k0)
-      sw      $t2, 20($k0)
-      sw      $t3, 24($k0)
-      sw      $t4, 28($k0)
-      sw      $v0, 32($k0)
-      sw      $ra, 36($k0)
-      mfc0    $k0, $13                 # Get Cause register
-      srl     $a0, $k0, 2
-      and     $a0, $a0, 0xf            # ExcCode field
-      bne     $a0, 0, non_intrpt
+	la		$k0, chunkIH
+	sw		$a0, 0($k0)              # Get some free registers                  
+	sw		$a1, 4($k0)              # by storing them to a global variable     
+	sw		$a2, 8($k0)
+	sw		$t0, 12($k0)
+	sw		$t1, 16($k0)
+	sw		$v0, 20($k0)
+	sw		$ra, 24($k0)
+	mfc0	$k0, $13                 # Get Cause register
+	srl		$a0, $k0, 2
+	and		$a0, $a0, 0xf            # ExcCode field
+	bne		$a0, 0, non_intrpt
 
 interrupt_dispatch:					# Interrupt:
 	mfc0	$k0, $13				# Get Cause register, again
@@ -196,111 +193,102 @@ scan_interrupt: #Here I want to call a fresh scan and save my first for processi
 	la		$a1, Scan_data
 	mul		$a2, $a2, 4096 #(calulate the offset 4098 times 4 is16384)
 	add		$a1, $a1, $a2  #add the offset
-	sw		$a1, 0xffff0080($0) ##
 	sw		$a1, 0xffff005c($0)
 	add		$s5, $s5, 1
 	j       interrupt_dispatch       # see if other interrupts are waiting
 	
 lastTime10:
-	lw	$a1, scanlocX($0)
-	li	$a2, 10
-	beq	$s5, $a2, interrupt_dispatch
-	beq	$a1, $0, endlasttime
-	sw	$0, scanlocX($0)
-	 li 	$a1, 150
-        sw 	$a1, 0xffff0050($0)
-        li 	$a1, 150
-        sw 	$a1, 0xffff0054($0)
-        li 	$a1, 225
-        sw 	$a1, 0xffff0058($0)
-	la 	$a1, Scan_data
-	add	$a1, 147456         #9 times 16384
-	sw 	$a1, 0xffff0080($0) ##
-        sw 	$a1, 0xffff005c($0)
+	lw		$a1, scanlocX($0)
+	li		$a2, 10
+	beq		$s5, $a2, interrupt_dispatch
+	beq		$a1, $0, endlasttime
+	sw		$0, scanlocX($0)
+	li		$a1, 150
+	sw		$a1, 0xffff0050($0)
+	li		$a1, 150
+	sw		$a1, 0xffff0054($0)
+	li		$a1, 225
+	sw		$a1, 0xffff0058($0)
+	la		$a1, Scan_data
+	add		$a1, 147456         #9 times 16384
+	sw		$a1, 0xffff005c($0)
 
-endlasttime:	
-	add	$s5, $s5, 1
-
-	 j       interrupt_dispatch       # see if other interrupts are waiting
+endlasttime:
+	add		$s5, $s5, 1
+	j		interrupt_dispatch       # see if other interrupts are waiting
 
 timer_interrupt: # Here I want to move on to the next point (or set another timer interrupt to check for more, if I have no tokens but am not done)...
-      sw      $zero, 0xffff0010($zero) # set velocity to 0
-      sw      $a1, 0xffff006c($zero)   # acknowledge interrupt
+	sw		$zero, 0xffff0010($zero) # set velocity to 0
+	sw		$a1, 0xffff006c($zero)   # acknowledge interrupt
 
-	lw 	$a0, tokens_head($0)
-	lw 	$a1, tokens_tail($0)
-	beq 	$a0, $a1, after
+	lw		$a0, tokens_head($0)
+	lw		$a1, tokens_tail($0)
+	beq		$a0, $a1, after
 
-	#	sw 	$a1, 0xffff0080($0) ##
-	#	sw 	$a0, 0xffff0080($0) ##
-	
-	la $t1, driveFlag
-	lw $t0, driveFlag($0)
-	bgt $t0, 1, after
-	bgt $t0, $0, again
+	la		$t1, driveFlag
+	lw		$t0, driveFlag($0)
+	bgt		$t0, 1, after
+	bgt		$t0, $0, again
 
-      lw      $k0, 0xffff001c($0)      # current time
-      add     $k0, $k0, 10000  
-      sw      $k0, 0xffff001c($0)      # request timer in 10000
+	lw		$k0, 0xffff001c($0)      # current time
+	add		$k0, $k0, 10000
+	sw		$k0, 0xffff001c($0)      # request timer in 10000
+
 start:
-	addi $t0, $0, 1
-	sw $t0, 0($t1)
-	lw $a1, 4($a0)
-	lw $a0, 0($a0)
+	addi	$t0, $0, 1
+	sw		$t0, 0($t1)
+	lw		$a1, 4($a0)
+	lw		$a0, 0($a0)
 
-	la 	$ra, interrupt_dispatch
-	la 	$t0, drive 
-	jr 	$t0
+	la		$ra, interrupt_dispatch
+	la		$t0, drive 
+	jr		$t0
 	
 again:
-	addi $t0, $t0, 1
-	sw $t0, 0($t1)
-	lw $a1, 4($a0)
-	add 	$t1, $a0, 12
-	sw 	$t1, tokens_head($0)
-	lw 	$a0, 0($a0)
-	la 	$ra, interrupt_dispatch
-	li 	$t1, 1
+	addi	$t0, $t0, 1
+	sw		$t0, 0($t1)
+	lw		$a1, 4($a0)
+	add		$t1, $a0, 12
+	sw		$t1, tokens_head($0)
+	lw		$a0, 0($a0)
+	la		$ra, interrupt_dispatch
+	li		$t1, 1
 
-	la 	$t0, drive 
-	jr 	$t0
+	la		$t0, drive
+	jr		$t0
 
 after:
-	bne $a0, $a1, start
-      lw      $k0, 0xffff001c($0)      # current time
-      add     $k0, $k0, 10000  
-      sw      $k0, 0xffff001c($0)      # request timer in 10000
-	
+	bne		$a0, $a1, start
+	lw		$k0, 0xffff001c($0)      # current time
+	add		$k0, $k0, 10000  
+	sw		$k0, 0xffff001c($0)      # request timer in 10000
 
-      j       interrupt_dispatch       # see if other interrupts are waiting
+	j		interrupt_dispatch       # see if other interrupts are waiting
 
-non_intrpt:                            # was some non-interrupt
-add $k0, $v0, $zero
-      li      $v0, 4
-      la      $a0, non_intrpt_str
-      syscall                          # print out an error message
-add $v0, $k0, $zero
-      # fall through to done
+non_intrpt:                          # was some non-interrupt
+	add		$k0, $v0, $zero
+	li		$v0, 4
+	la		$a0, non_intrpt_str
+	syscall                          # print out an error message
+	add		$v0, $k0, $zero
+	# fall through to done
 
 done:
-      la      $k0, chunkIH
-      lw      $a0, 0($k0)              # Restore saved registers
-      lw      $a1, 4($k0)
-      lw      $a2, 8($k0)
-      lw      $t0, 12($k0)
-      lw      $t1, 16($k0)
-      lw      $t2, 20($k0)
-      lw      $t3, 24($k0)
-      lw      $t4, 28($k0)
-      lw      $v0, 32($k0)
-      lw      $ra, 36($k0)
-      mfc0    $k0, $14                 # Exception Program Counter (PC)
+	la		$k0, chunkIH
+	lw		$a0, 0($k0)              # Restore saved registers
+	lw		$a1, 4($k0)
+	lw		$a2, 8($k0)
+	lw		$t0, 12($k0)
+	lw		$t1, 16($k0)
+	lw		$v0, 20($k0)
+	lw		$ra, 24($k0)
+	mfc0	$k0, $14                 # Exception Program Counter (PC)
 .set noat
-      move    $at, $k1                 # Restore $at
-.set at 
-      rfe   
-      jr      $k0
-      nop
+	move	$at, $k1                 # Restore $at
+.set at
+	rfe   
+	jr		$k0
+	nop
 
 
 
