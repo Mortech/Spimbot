@@ -76,7 +76,6 @@ main:                                  # ENABLE INTERRUPTS
 	li	$a1, 150
 	la 	$ra, infinite
 	la 	$t0, drive
-	li	$t9, 1
 	jr 	$t0
 
 	
@@ -318,48 +317,54 @@ no_TURN_90:
 	cvt.s.w $f0, $f0	# convert from ints to floats
 	cvt.s.w $f1, $f1
 	
+	bne		$t9, $zero, floats_initialized
+	li		$t9, 1					# flag $t9 that floats are initialized
+	l.s		$f3, three($zero)		# load 3.0
+	l.s		$f5, five($zero)		# load 5.0
+	l.s		$f7, seven($zero)		# load 7.0
+	l.s		$f9, nine($zero)		# load 9.0
+	l.s		$f11, eleven($zero)		# load 11.0
+	l.s		$f13, thirteen($zero)	# load 13.0
+	l.s		$f15, fifteen($zero)	# load 15.0
+	l.s		$f8, PI($zero)			# load PI
+	l.s		$f10, F180($zero)		# load 180.0
+	
+floats_initialized:
 	div.s	$f0, $f1, $f0	# float v = (float) y / (float) x;
 
 	mul.s	$f1, $f0, $f0	# v^^2
 	mul.s	$f2, $f1, $f0	# v^^3
-	l.s	$f3, three($zero)	# load 3.0
-	div.s 	$f3, $f2, $f3	# v^^3/3
-	sub.s	$f6, $f0, $f3	# v - v^^3/3
+	
+	div.s 	$f4, $f2, $f3	# v^^3/3
+	sub.s	$f6, $f0, $f4	# value = v - v^^3/3
 
-	mul.s	$f4, $f1, $f2	# v^^5
-	l.s	$f5, five($zero)	# load 5.0
-	div.s 	$f5, $f4, $f5	# v^^5/5
-	add.s	$f6, $f6, $f5	# value = v - v^^3/3 + v^^5/5
+	mul.s	$f2, $f1, $f2	# v^^5
+	div.s 	$f4, $f2, $f5	# v^^5/5
+	add.s	$f6, $f6, $f4	# value = value + v^^5/5
 
-	mul.s	$f2, $f1, $f4	# v^^7
-	l.s	$f3, seven($zero)	# load 7.0
-	div.s 	$f3, $f2, $f3	# v^^7/7
-	sub.s	$f6, $f6, $f3	# value - v^^7/7
+	mul.s	$f2, $f1, $f2	# v^^7
+	div.s 	$f4, $f2, $f7	# v^^7/7
+	sub.s	$f6, $f6, $f4	# value - v^^7/7
 
 	mul.s	$f2, $f1, $f2	# v^^9
-	l.s	$f3, nine($zero)	# load 9.0
-	div.s 	$f3, $f2, $f3	# v^^9/9
-	add.s	$f6, $f6, $f3	# value + v^^9/9
+	div.s 	$f4, $f2, $f9	# v^^9/9
+	add.s	$f6, $f6, $f4	# value + v^^9/9
 
 	mul.s	$f2, $f1, $f2	# v^^11
-	l.s	$f3, eleven($zero)	# load 11.0
-	div.s 	$f3, $f2, $f3	# v^^11/11
-	sub.s	$f6, $f6, $f3	# value + v^^11/11
+	div.s 	$f4, $f2, $f11	# v^^11/11
+	sub.s	$f6, $f6, $f4	# value + v^^11/11
 
 	mul.s	$f2, $f1, $f2	# v^^13
-	l.s	$f3, thirteen($zero)	# load 13.0
-	div.s 	$f3, $f2, $f3	# v^^13/13
-	add.s	$f6, $f6, $f3	# value + v^^13/13
+	div.s 	$f4, $f2, $f13	# v^^13/13
+	add.s	$f6, $f6, $f4	# value + v^^13/13
 
 	mul.s	$f2, $f1, $f2	# v^^13
-	l.s	$f3, fifteen($zero)	# load 15.0
-	div.s 	$f3, $f2, $f3	# v^^15/15
-	sub.s	$f6, $f6, $f3	# value + v^^15/15
+	div.s 	$f4, $f2, $f15	# v^^15/15
+	sub.s	$f6, $f6, $f4	# value + v^^15/15
 
-	l.s	$f8, PI($zero)		# load PI
 	div.s	$f6, $f6, $f8	# value / PI
 	l.s	$f7, F180($zero)	# load 180.0
-	mul.s	$f6, $f6, $f7	# 180.0 * value / PI
+	mul.s	$f6, $f6, $f10	# 180.0 * value / PI
 
 	cvt.w.s $f6, $f6	# convert "delta" back to integer
 	mfc1	$t0, $f6
@@ -548,8 +553,3 @@ drive_end:
 	add $t0, $t0, $t1
 	sw $t0, 0xffff001c($0) #set timer to appropriate value
 	jr $ra
-
-
-
-
-	
