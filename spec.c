@@ -11,7 +11,7 @@
   $s5 - $s7 and $t7 - $t10 are not to be used by
   or stored away in funtions. They are saved for use as defind here:
 
-  $s5: 
+  $s5: scan iteration
  
 
 	$t8 and $t10: used in sort_list, should be restored when interrupting

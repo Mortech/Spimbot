@@ -3,7 +3,7 @@ Scan_data:	.space 163840
 
 tokens_head:	.word 0
 tokens_tail:	.word 0	
-tokens:	.space	248 #list structure
+tokens:	.space	720 #list structure set back to 248
 #list=
 #	head *
 #	tail *
@@ -87,7 +87,10 @@ gettoken:
 	sw 	$v0, 0xffff0084($0) ##
 	sw 	$t5, 0xffff0080($0) ##
 	sw 	$v0, 0xffff0084($0) ##
-	li	$t6, 32   #scan all 31 times
+	li	$t6, 15   #scan all 31 times
+	la	$a0, Scan_data
+	add 	$a0, $a0, $t5
+	sw 	$a0, 0xffff0080($0) ##
 backtotokens:
 	beq	$0, $t6, infinite
 	sub	$t6, $t6, 1
@@ -100,12 +103,12 @@ backtotokens:
 
 	la	$a0, Scan_data
 	add	$a0, $a0, $t5
-	sw 	$a0, 0xffff0080($0) ##
+#	sw 	$a0, 0xffff0080($0) ##
 	jal	compact
 	bgt	$v0, 300,  backtotokens
 	bgt	$v1, 300,  backtotokens
-	sw 	$v0, 0xffff0080($0) ##
-	sw 	$v1, 0xffff0080($0) ##prints to screen
+#	sw 	$v0, 0xffff0080($0) ##
+#	sw 	$v1, 0xffff0080($0) ##prints to screen
 
 
 
@@ -205,23 +208,32 @@ scan_interrupt: #Here I want to call a fresh scan and save my first for prossesi
         la 	$a1, Scan_data
 	mul	$a2, $a2, 4096 #(calulate the offset 4098 times 4 is16384)
 	add	$a1, $a1, $a2  #add the offset
+	sw 	$a1, 0xffff0080($0) ##
         sw 	$a1, 0xffff005c($0)
+
+
 	add	$s5, $s5, 1
         j       interrupt_dispatch       # see if other interrupts are waiting
 lastTime10:
 	lw	$a1, scanlocX($0)
-	beq	$a1, $0, interrupt_dispatch
+	li	$a2, 10
+	beq	$s5, $a2, interrupt_dispatch
+	beq	$a1, $0, endlasttime
 	sw	$0, scanlocX($0)
 	 li 	$a1, 150
         sw 	$a1, 0xffff0050($0)
         li 	$a1, 150
         sw 	$a1, 0xffff0054($0)
-        li 	$a1, 300
+        li 	$a1, 225
         sw 	$a1, 0xffff0058($0)
 	la 	$a1, Scan_data
-	add	$a1, 147456         #9 times 16384 
+	add	$a1, 147456         #9 times 16384
+	sw 	$a1, 0xffff0080($0) ##
         sw 	$a1, 0xffff005c($0)
+
+endlasttime:	
 	add	$s5, $s5, 1
+
 	 j       interrupt_dispatch       # see if other interrupts are waiting
 
 timer_interrupt: # Here I want to move on to the next point (or set another timer interrupt to check for more, if I have no tokens but am not done)...
@@ -232,8 +244,8 @@ timer_interrupt: # Here I want to move on to the next point (or set another time
 	lw 	$a1, tokens_tail($0)
 	beq 	$a0, $a1, after
 
-		sw 	$a1, 0xffff0080($0) ##
-		sw 	$a0, 0xffff0080($0) ##
+	#	sw 	$a1, 0xffff0080($0) ##
+	#	sw 	$a0, 0xffff0080($0) ##
 	
 	la $t1, driveFlag
 	lw $t0, driveFlag($0)
@@ -535,10 +547,10 @@ compact_finish:
 #Function will set bot to drive to the x, y location.
 #$a0=x, $a1=y
 drive:
-		sw 	$a0, print_float($0)
-	sw 	$a0, print_int($0)
-	sw 	$a1, print_int($0)
-		sw 	$a1, print_float($0)
+#		sw 	$a0, print_float($0)
+#	sw 	$a0, print_int($0)
+#	sw 	$a1, print_int($0)
+#		sw 	$a1, print_float($0)
 	lw $t0, 0xffff0020($0) #x-loc
 	lw $t1, 0xffff0024($0) #y-loc
 	sub $a0, $a0, $t0 #x-delta
