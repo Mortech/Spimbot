@@ -11,12 +11,12 @@ def alarm_handler(signum, frame):
     raise Alarm
 
 signal.signal(signal.SIGALRM, alarm_handler)
-signal.alarm(15)
+signal.alarm(20)
 
 
 def runGame() :
     try :
-        inline= Popen("./QtSpimbot -file spimbot.s -run -exit_when_done -maponly -quiet ", stdout=PIPE, shell=True).stdout
+        inline= Popen("./QtSpimbot -file spimbot.s -run -randommap -exit_when_done -maponly -quiet ", stdout=PIPE, shell=True).stdout
         string = "not"
         while(not (string == '')) :
             string = inline.readline()
@@ -28,11 +28,12 @@ def runGame() :
         killerror= Popen("killall QtSpimbot", stdout=PIPE, shell=True).stdout
         print  killerror.read()
         time.sleep(1)
-        signal.alarm(15)  
+         
         return "fail" 
    
       
 count = Counter()
 for x in xrange(0, 10) :
-   count[runGame()] +=1
+    signal.alarm(15) 
+    count[runGame()] +=1
 print count
