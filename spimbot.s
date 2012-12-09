@@ -371,78 +371,6 @@ floats_initialized:
 	add	$v0, $v0, $t0	# angle += delta
 
 	jr 	$ra
-	
-
-insert_element_after:	
-	# inserts the new element $a0 after $a1
-	# if $a1 is 0, then we insert at the front of the list
-
-	bne	$a1, $zero, iea_not_head # if a1 is null, we have to assign the head and tail
-
-	lw	$t0, 0($a2) 		# $t0 = mylist->head
-	sw	$t0, 8($a0)		# node->next = mylist->head;
-	beqz	$t0, iea_after_head	# if ( mylist->head != NULL ) {
-	sw	$a0, 4($t0)		#   mylist->head->prev = node;
-		     			# }
-	iea_after_head:	
-	sw	$a0, 0($a2)		# mylist->head = node;
-	lw	$t0, 4($a2)		# $t0 = mylist->tail
-	bnez	$t0, iea_done		# if ( mylist->tail == NULL ) {
-	sw	$a0, 4($a2)		#   mylist->tail = node;
-	iea_done:	     			# }
-	jr	$ra
-
-	iea_not_head:
-	lw	$t1, 8($a1)		# $t1 = prev->next
-	bne	$t1, $zero, iea_not_tail# if ( prev->next == NULL ) {
-	sw	$a0, 4($a2)		#   mylist->tail = node;
-	b	iea_end			# }
-	iea_not_tail:				# else {
-	sw	$t1, 8($a0)		#   node->next = prev->next;
-	sw	$a0, 4($t1)		#   node->next->prev = node;
-		     			# }
-
-	iea_end:	
-	sw	$a0, 8($a1)		# store the new pointer as the next of $a1
-	sw	$a1, 4($a0)		# store the old pointer as prev of $a0
-	jr	$ra			# return
-	# END insert_element_after
-
-	remove_element:
-	# removes the element at $a0 (list is in $a1)
-	# if this element is the whole list, we have to empty the list
-	lw	$t0, 0($a1)  	        # t0 = mylist->head
-	lw	$t1, 4($a1)  	        # t1 = mylist->tail
-	bne	$t0, $t1, re_not_empty_list
-
-	re_empty_list:
-	sw	$zero, 0($a1)		# zero out the head ptr
-	sw	$zero, 4($a1)		# zero out the tail ptr
-	j	re_done
-
-	re_not_empty_list:
-	lw	$t2, 4($a0)		# t2 = node->prev
-	lw	$t3, 8($a0)		# t3 = node->next
-	bne	$t2, $zero, re_not_first# if (node->prev == NULL) {
-
-	sw	$t3, 0($a1)		# mylist->head = node->next;
-	sw	$zero, 4($t3)		# node->next->prev = NULL;
-	j	re_done
-
-	re_not_first: 
-	bne	$t3, $zero, re_not_last# if (node->next == NULL) {
-	sw	$t2, 4($a1)		# mylist->tail = node->prev;
-	sw	$zero, 8($t2)		# node->prev->next = NULL;
-	j	re_done
-	re_not_last:
-	sw	$t3, 8($t2)		# node->prev->next = node->next;
-	sw	$t2, 4($t3)		# node->next->prev = node->prev;
-
-	re_done:
-	sw	$zero, 4($a0)		# zero out $a0's prev
-	sw	$zero, 8($a0)		# zero out $a0's next
-	jr	$ra			# return
-	# END remove_element
 
 	
 sort_list:
@@ -479,9 +407,7 @@ sort_list_end_inner_loop:
 	
 sort_list_done:
 	j 	$ra
-  
-
-
+	
 	
 compact:
 # $a0 = trav, $a1 = trav->value, $v0 = accumulator / x-return, $v1 = y-return
