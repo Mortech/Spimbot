@@ -158,7 +158,7 @@ usage  spimTweek <scan type>  <number of times>  <seed type>  <seed>
 values
 <scan type> : single, double, token
 <number of times> : int
-<seed type>  : defalt, random, static  <seed>, setOrder <seed> 
+<seed type>  : default, random, static  <seed>, setOrder <seed> 
 
 
 """
@@ -172,7 +172,7 @@ values
             print "done"
             sys.exit(0)
         else :
-            print "\n \n Error: heatmap.py not found"
+            print "\n \n Error: heatmap.py missing or misconfigured."
             sys.exit(1)
         
     gamerunner=lambda x,y,z: runtests((runGame,runTwoPlayers) \
@@ -181,7 +181,7 @@ values
     count = Counter()
     r=random
 
-    if str(sys.argv[3]) == "defalt" :
+    if str(sys.argv[3]) == "default" :
         r.seed("good luck")
     if str(sys.argv[3])  == "setOrder" :
         r.seed(sys.argv[4])
