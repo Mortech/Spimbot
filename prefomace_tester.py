@@ -1,11 +1,24 @@
 from subprocess import Popen;
 from subprocess import PIPE;
-from collections import Counter
 import sys
+try:
+    from collections import Counter
+except ImportError:
+    try:
+        from recipe5766111 import Counter
+    except ImportError:
+        print "Counter not found"
+        sys.exit(1)
+
+
 import time
 import random
 import signal
-#import heatmap
+heatmapSupport =True
+try:
+    import heatmap
+except ImportError:
+    heatmapSupport = False
 
 class Alarm(Exception):
     pass
@@ -16,11 +29,38 @@ def alarm_handler(signum, frame):
 signal.signal(signal.SIGALRM, alarm_handler)
 signal.alarm(20)
 
-def tokenheatmap(test_num,seed_list,seed ="-randommap") :
+def graptokens(rand) :
+    if not type(rand) == str :
+        rand = "-randomseed "+str(rand(1355029990,1355039990))+" -randommap"
+    try :
+        inline= Popen("./QtSpimbot -file done.s "+rand+ 
+                      " -maponly  -debug   -run  -exit_when_done", stdout=PIPE, shell=True).stdout
+        string = "not"
+        pointList =[]
+        while(not (string == '')) :
+ 
+            string = inline.readline()
+            if string[:6] == "TOKEN:" :
+                nums=string[7:].split(" ")
+                pointList.append( (int(nums[0]),int(nums[1])))
+                
+        return pointList
+    except Alarm:
+        killerror= Popen("killall QtSpimbot", stdout=PIPE, shell=True).stdout
+        
+        print "error"
+        return []
+    
+
+
+
+def tokenheatmap(test_num,seed) :
     hm  = heatmap.Heatmap()
+    tokenList =[]
     for x in xrange(0, test_num) :
-        signal.alarm(15) 
-        count[y] +=1
+        signal.alarm(20) 
+        tokenList+=graptokens(seed)
+    hm.heatmap(tokenList, 50, 120,(2048, 2048), 'classic', ((0,0),(300,300))).save("token_heat_map.png")
 
 
 def runGame( seed_list, rand) :
@@ -123,14 +163,21 @@ values
 
 """
         sys.exit(1)
+    test_num =int(sys.argv[2])
     print str(sys.argv)
     setting ={"single":0,"double":1,"token":3}
     if setting[sys.argv[1]] is 3 :
-        print "not yet implented"
-        sys.exit(0)
+        if heatmapSupport :
+            tokenheatmap(test_num,"-randommap")
+            print "done"
+            sys.exit(0)
+        else :
+            print "\n \n Error: heatmap.py not found"
+            sys.exit(1)
+        
     gamerunner=lambda x,y,z: runtests((runGame,runTwoPlayers) \
                                           [setting[str(sys.argv[1])]],x,y,z)
-    test_num =int(sys.argv[2])    
+    
     count = Counter()
     r=random
 
