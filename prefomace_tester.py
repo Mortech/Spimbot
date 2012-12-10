@@ -5,6 +5,7 @@ import sys
 import time
 import random
 import signal
+#import heatmap
 
 class Alarm(Exception):
     pass
@@ -14,6 +15,12 @@ def alarm_handler(signum, frame):
 
 signal.signal(signal.SIGALRM, alarm_handler)
 signal.alarm(20)
+
+def tokenheatmap(test_num,seed_list,seed ="-randommap") :
+    hm  = heatmap.Heatmap()
+    for x in xrange(0, test_num) :
+        signal.alarm(15) 
+        count[y] +=1
 
 
 def runGame( seed_list, rand) :
@@ -93,9 +100,9 @@ def runtests(run, test_num,seed_list,seed ="-randommap"):
         if x is not 'fail' :
   
             if not x[0:7] ==  "winner:" :
-               avg+=int(x)
+                avg+=int(x)
     avg/=test_num
-    print "avg runtime: ", max_time
+    print "avg runtime: ", avg
 
 
 if __name__ == "__main__" :
@@ -118,6 +125,9 @@ values
         sys.exit(1)
     print str(sys.argv)
     setting ={"single":0,"double":1,"token":3}
+    if setting[sys.argv[1]] is 3 :
+        print "not yet implented"
+        sys.exit(0)
     gamerunner=lambda x,y,z: runtests((runGame,runTwoPlayers) \
                                           [setting[str(sys.argv[1])]],x,y,z)
     test_num =int(sys.argv[2])    
