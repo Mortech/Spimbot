@@ -171,7 +171,7 @@ scan_interrupt: #Here I want to call a fresh scan and save my first for processi
 	lw		$a2, scancontrol($0) #a2 is the scan number
 	li		$a0 12 #the 12th time will stor the 11th value
 	beq 	$a0, $a2, lastTime10
-	add		$a2, $a2, 1 
+	add		$a2, $a2, 1
 	sw		$a2, scancontrol($0)
 	mul		$a2, $a2 4
 	lw		$a1, scanlocX($a2)
@@ -189,7 +189,7 @@ scan_interrupt: #Here I want to call a fresh scan and save my first for processi
 	
 lastTime10:
 	lw		$a1, scanlocX($0)
-	li		$a2, 10
+	li		$a2, 14
 	beq		$s5, $a2, interrupt_dispatch
 	beq		$a1, $0, endlasttime
 	sw		$0, scanlocX($0)
@@ -200,7 +200,7 @@ lastTime10:
 	li		$a1, 225
 	sw		$a1, 0xffff0058($0)
 	la		$a1, Scan_data
-	add		$a1, 147456         #9 times 16384
+	add		$a1, 212992         #13 times 16384
 	sw		$a1, 0xffff005c($0)
 
 endlasttime:
