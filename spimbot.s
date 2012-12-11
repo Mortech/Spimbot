@@ -1,5 +1,5 @@
  .data
-Scan_data:	.space 163840
+Scan_data:	.space 229376
 
 tokens_head:	.word 0
 tokens_tail:	.word 0	
@@ -17,8 +17,8 @@ tokenHunt:	.word 0	#counter for collecting
 driveFlag:.word 0 #driving flag
 scanflag:	.word 1		
 	
-scanlocX: .word 1, 150, 50, 50, 50, 150, 250, 250, 250 # the first one is a flag
-scanlocY: .word 0, 250, 250, 150, 50, 50, 50, 150, 250	
+scanlocX: .word 1, 150, 50, 50, 50, 150, 250, 250, 250, 200, 100, 100, 200 # the first one is a flag
+scanlocY: .word 0, 250, 250, 150, 50, 50, 50, 150, 250, 200, 100, 200, 100
 wordyo:.space 12
 	
 .text
@@ -65,7 +65,7 @@ main:                                  # ENABLE INTERRUPTS
 	sw $t4, 0xffff0050($0)
 	li $t4, 150
 	sw $t4, 0xffff0054($0)
-	li $t4, 71
+	li $t4, 50
 	sw $t4, 0xffff0058($0)
 	la $t4, Scan_data
 	sw $t4, 0xffff005c($0)
@@ -169,7 +169,7 @@ bonk_interrupt: #bonk shouldn't ever happen, do not need to worry about it...
 scan_interrupt: #Here I want to call a fresh scan and save my first for processing
 	sw		$a1, 0xffff0064($zero)   # acknowledge interrupt
 	lw		$a2, scancontrol($0) #a2 is the scan number
-	li		$a0 8 #the 8th time will stor the 9th value
+	li		$a0 12 #the 12th time will stor the 11th value
 	beq 	$a0, $a2, lastTime10
 	add		$a2, $a2, 1 
 	sw		$a2, scancontrol($0)
@@ -178,7 +178,7 @@ scan_interrupt: #Here I want to call a fresh scan and save my first for processi
 	sw		$a1, 0xffff0050($0)
 	lw		$a1, scanlocY($a2)
 	sw		$a1, 0xffff0054($0)
-	li		$a1, 71
+	li		$a1, 50
 	sw		$a1, 0xffff0058($0)
 	la		$a1, Scan_data
 	mul		$a2, $a2, 4096 #(calulate the offset 4098 times 4 is16384)
