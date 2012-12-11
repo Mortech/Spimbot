@@ -83,40 +83,14 @@ gettoken:
 
 	mul	$t5, $s6, 16384  # sets the memery if this scan
 	add	$s6, $s6, 1           #scan num++
-	li	$t6, 15   #scan all 15 times
 	la	$a0, Scan_data
-	add 	$a0, $a0, $t5
-	
-backtotokens:
-	beq	$0, $t6, infinite
-	sub	$t6, $t6, 1
-	lw	$t0, Scan_data($t5)
-	la	$a0, Scan_data
-	add	$a0, $a0, $t5
-
-	jal sort_list
-	jal	compact
-	
-	bgt	$v0, 300,  infinite
-	bgt	$v1, 300,  infinite
-
-	lw	$a0, tokens_tail($0) 
-
-	sw	$v0, 0($a0)
-	sw	$v1, 4($a0)
-
-	add	$a0, $a0, 12
-	sw	$a0, tokens_tail($0)
-forNext:
-	add	$t5, $t5, 8    #up next token locaion	
-	j 	backtotokens
-
+	add $a0, $a0, $t5
+	jal sortScans
 
 infinite:
 	
 	blt $s6, $s5, gettoken 
-	
- j      infinite	
+	j      infinite	
 
 
      nop
@@ -372,67 +346,58 @@ floats_initialized:
 
 	jr 	$ra
 
-	
-sort_list:
-	li	$a1, 31
-	
-sort_list_outer_loop:
-	ble	$a1, $zero, sort_list_done
-	lw	$v0, 0($a0)
-	lw	$v1, 0($a0)
-	li	$a2, 0
-	
-sort_list_inner_loop:
-	bge	$a2, $a1, sort_list_end_inner_loop
-	lw	$v1, 8($v1)
-	lw	$s0, 0($v0)
-	lw	$s1, 0($v1)
-	bge	$s0, $s1, sort_list_no_replace
-	or	$v0, $v1, $zero
-	
-sort_list_no_replace:
-	add	$a2, $a2, 1
-	j  	sort_list_inner_loop
-	
-sort_list_end_inner_loop:
-	sub	$a1, $a1, 1
-	beq	$v0, $v1, sort_list_outer_loop
-	lw	$s0, 12($v0)
-	lw	$s1, 12($v1)
-	sw	$s0, 12($v1)
-	sw	$s1, 12($v0)
-	lw	$a3, 0($v1)
-	sw	$a3, 0($v0)
-	j 	sort_list_outer_loop
-	
-sort_list_done:
-	j 	$ra
-	
-	
-compact:
-# $a0 = trav, $a1 = trav->value, $v0 = accumulator / x-return, $v1 = y-return
-  li   $v0, 0                       # initialize accumulator
-  lw   $a0, 0($a0)                  # load head to $a0
-  
-compact_loop_start:
-  beq  $a0, $zero, compact_finish   # finish up when list is empty
 
-  sll  $v0, $v0, 1                  # shift the accumulator left
-
-  lw   $a1, 12($a0)                 # get the current node->value
-  beq  $a1, $zero, compact_continue # don't set the bit when val == zero
-  add  $v0, $v0, 1                  # set the bit otherwise
-  
-compact_continue:
-  lw   $a0, 8($a0)                  # trav = trav->next
-  j    compact_loop_start           # restart loop
-
-compact_finish:
-  and  $v1, $v0, 0x0000FFFF         # mask away bottom 16(y) to $v1
-  srl  $v0, $v0, 16                 # shift top 16(x) to $v0
-  j    $ra                          # return
-  
-
+sortScans:
+# $a0 = input scan address, $a1 = scan loop counter, $a2 = list loop counter, $s0 = smallest, $s1 = curr, $s2/$s3 temps
+	add		$a0, $a0, 120			# skip to last list
+	li    	$a1, 15 				# initialize scan array loop
+scan_start:
+	ble		$a1, $zero, infinite 	# stop when array finished
+	sub		$a1, $a1, 1 			# go ahead and decrement scan array count
+	sub		$a0, $a0, 8				# decrease list pointer
+  	li		$v0, 0					# set global return to 0
+	li		$a2, 32					# initialize list loop
+loop_start:
+	ble		$a2, $zero, list_done	# stop when all sorted
+	sub		$a2, $a2, 1				# go ahead and decrement list spot count
+	sll		$v0, $v0, 1				# ret = ret<<1
+	lw		$s0, 4($a0)				# smallest = list->tail
+	lw		$s1, 4($a0)				# curr = list->tail
+	move	$a3, $a2				# initialize inner loop
+inner_loop_start:
+	ble		$a3, $zero, inner_loop_end	# stop when one sorted
+	sub		$a3, $a3, 1				# go ahead and decrement inner loop count
+	lw		$s1, 4($s1)				# curr = curr->prev
+	lw		$s2, 0($s0)				# smallest->data
+	lw		$s3, 0($s1)				# curr->data
+	ble		$s2, $s3, inner_loop_start # if smallest->data > curr->data
+	move	$s0, $s1				# smallest = curr
+	j		inner_loop_start        # restart loop
+inner_loop_end:
+	lw		$s2, 12($s0)            # smallest->compact
+	beq		$s2, $zero, continue	# if non-zero
+	beq		$a2, 26, scan_start
+	add		$v0, $v0, 1				# ret++
+continue:
+	beq		$s0, $s1, loop_start	# don't assign if same
+	lw		$s2, 0($s1)				# current->data
+	lw		$s3, 12($s1)			# current->compress
+	sw		$s2, 0($s0)				# min->data = current->data
+	sw		$s3, 12($s0)			# min->compress = current->compress
+	j		loop_start
+list_done:
+	and		$v1, $v0, 0x0000FFFF	# strip off y
+	srl		$v0, $v0, 16			# strip off x
+	bgt		$v0, 300, scan_start	# don't add if x >= 300
+	bgt		$v1, 300, scan_start	# don't add if y >= 300
+	lw		$s0, tokens_tail($0) 	# get token tail
+	sw		$v0, 0($s0)				# set token x
+	sw		$v1, 4($s0)				# set token y
+	add		$s0, $s0, 12			# increment tail pointer
+	sw		$s0, tokens_tail($0)	# set tail pointer
+	j		scan_start				# scan next array
+	
+	
 #Function will set bot to drive to the x, y location.
 #$a0=x, $a1=y
 drive:
