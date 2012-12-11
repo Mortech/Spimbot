@@ -123,14 +123,15 @@ def runtests(run, test_num,seed_list,seed ="-randommap"):
 
     min_time = None
     for x in count.elements() : 
-        l=[min_time ,x]
-        min_time= min(i for i in l if (i is not None) and (i[0:7] is not  "winner:"))
+        if not x[:7] == "winner:" :
+            l=[min_time ,int(x)]
+            min_time= min(i for i in l if i is not None)
     print "minimum time: ", min_time
 
     max_time = None
     for x in count.elements() : 
         if not x[:7] == "winner:" :
-            max_time= max(max_time, x)
+            max_time= max(max_time, int(x))
     print "max time: ", max_time
 
     avg =0;
