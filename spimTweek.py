@@ -115,7 +115,7 @@ def runtests(run, test_num,seed_list,seed ="-randommap"):
   
 
     for x in xrange(0, test_num) :
-        signal.alarm(15) 
+        signal.alarm(30) 
         for y in run(seed_list,seed) :
             count[y] +=1
     print "histogram :"
@@ -189,7 +189,7 @@ values
     failed_seed_list = []
     if str(sys.argv[3]) == "random" :
         gamerunner(test_num,failed_seed_list,"-randommap")
-    if  str(sys.argv[3]) == "static" :
+    elif str(sys.argv[3]) == "static" :
         gamerunner(test_num,failed_seed_list,"-randomseed "+str(sys.argv[4]) \
                        +" -randommap") 
     else :
